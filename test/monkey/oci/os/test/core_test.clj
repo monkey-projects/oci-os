@@ -1,5 +1,6 @@
 (ns monkey.oci.os.test.core-test
   (:require [clojure.test :refer :all]
+            [martian.test :as mt]
             [monkey.oci.os.core :as sut]
             [org.httpkit.fake :as f]
             [org.httpkit.client :as http])
@@ -31,4 +32,19 @@
       ["https://objectstorage.test-region.oraclecloud.com/n/test-ns/b"
        {:body "{\"name\":\"test bucket\"}"}]
       
-      (is (= {:name "test bucket"} @(sut/list-buckets test-ctx "test-ns" "test-cid"))))))
+      (is (= {:name "test bucket"} @(sut/list-buckets test-ctx {:ns "test-ns"
+                                                                :compartment-id "test-cid"}))))))
+
+(deftest get-bucket
+  (testing "invokes `:get-bucket` request"
+    (let [ctx (mt/respond-with-constant test-ctx {:get-bucket {:body "{}"}})]
+      (is (map? @(sut/get-bucket ctx {:ns "test-ns" :bucket-name "test-bucket"})))))
+
+  (testing "fails when no bucket name given"
+    (let [ctx (mt/respond-with-constant test-ctx {:get-bucket {:body "{}"}})]
+      (is (thrown? Exception @(sut/get-bucket ctx {:ns "test-ns"}))))))
+
+(deftest list-objects
+  (testing "invokes `:list-objects` request"
+    (let [ctx (mt/respond-with-constant test-ctx {:list-objects {:body "{}"}})]
+      (is (map? @(sut/list-objects ctx {:ns "test-ns" :bucket-name "test-bucket"}))))))

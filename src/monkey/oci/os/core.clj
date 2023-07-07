@@ -2,7 +2,6 @@
   (:require [camel-snake-kebab.core :as csk]
             [clojure.data.json :as json]
             [clojure.string :as cs]
-            [clojure.tools.logging :as log]
             [manifold.deferred :as md]
             [martian
              [core :as martian]
@@ -27,14 +26,12 @@
                         ;; TODO Url escaping
                         (str (name k) "=" v)))
                  (cs/join "&")))]
-    (log/debug "Query params:" query-params)
     (cond-> url
       (not-empty query-params) (str "?" (->str query-params)))))
 
 (defn- sign-request
   "Adds authorization signature to the Martian request"
   [conf {:keys [request] :as ctx}]
-  (log/debug "Signing request:" request)
   (let [sign-headers (-> request
                          (assoc :url (url-with-query request))
                          (sign/sign-headers))
@@ -54,11 +51,22 @@
   [{:route-name :get-namespace
     :method :get
     :path-parts ["/n"]}
+   
    {:route-name :list-buckets
     :method :get
     :path-parts ["/n/" :ns "/b"]
     :path-schema {:ns s/Str}
-    :query-schema {:compartmentId s/Str}}])
+    :query-schema {:compartmentId s/Str}}
+   
+   {:route-name :get-bucket
+    :method :get
+    :path-parts ["/n/" :ns "/b/" :bucketName]
+    :path-schema {:ns s/Str :bucketName s/Str}}
+
+   {:route-name :list-objects
+    :method :get
+    :path-parts ["/n/" :ns "/b/" :bucketName "/o"]
+    :path-schema {:ns s/Str :bucketName s/Str}}])
 
 (defn make-context
   "Creates Martian context for the given configuration.  This context
@@ -72,15 +80,18 @@
                           [(signer conf)
                            martian-http/perform-request])}))
 
-(defn get-namespace
-  "Retrieves the bucket namespace associated with the tenancy"
-  [ctx]
-  (martian/response-for ctx :get-namespace))
+(defn- make-request-fn
+  "Creates a request function for the given request id.  The
+   function takes the context (created using `make-context`) and
+   any parameters.  Which parameters are accepted depend on the
+   route definition."
+  [id]
+  (fn [ctx & [params]]
+    (martian/response-for ctx id params)))
 
-(defn list-buckets
-  "Lists all buckets for the given namespace and compartment id"
-  [ctx ns cid]
-  #_(get! conf (format "/n/%s/b?compartmentId=%s" ns cid))
-  (martian/response-for ctx :list-buckets {:ns ns
-                                           :compartmentId cid}))
+(def get-namespace (make-request-fn :get-namespace))
 
+(def list-buckets (make-request-fn :list-buckets))
+(def get-bucket (make-request-fn :get-bucket))
+
+(def list-objects (make-request-fn :list-objects))

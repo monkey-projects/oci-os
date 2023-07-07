@@ -9,3 +9,5 @@
               (update :private-key u/load-privkey)))
 
 (def cid (:compartment-ocid env))
+
+(def ctx (c/make-context conf))
