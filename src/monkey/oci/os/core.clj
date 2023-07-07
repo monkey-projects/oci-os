@@ -50,20 +50,23 @@
    :leave (fn [ctx]
             (update ctx :response (comp parse-body :body)))})
 
+(def routes
+  [{:route-name :get-namespace
+    :method :get
+    :path-parts ["/n"]}
+   {:route-name :list-buckets
+    :method :get
+    :path-parts ["/n/" :ns "/b"]
+    :path-schema {:ns s/Str}
+    :query-schema {:compartmentId s/Str}}])
+
 (defn make-context
   "Creates Martian context for the given configuration.  This context
    should be passed to subsequent requests."
   [conf]
   (martian/bootstrap
    (host conf)
-   [{:route-name :get-namespace
-     :method :get
-     :path-parts ["/n"]}
-    {:route-name :list-buckets
-     :method :get
-     :path-parts ["/n/" :ns "/b"]
-     :path-schema {:ns s/Str}
-     :query-schema {:compartmentId s/Str}}]
+   routes
    {:interceptors (concat [body-parser]
                           martian/default-interceptors
                           [(signer conf)
