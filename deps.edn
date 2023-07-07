@@ -12,7 +12,8 @@
   {:extra-deps {com.monkeyprojects/build {:mvn/version "0.1.0-SNAPSHOT"}
                 org.slf4j/slf4j-api {:mvn/version "2.0.7"}
                 ch.qos.logback/logback-classic {:mvn/version "1.4.8"}
-                yogthos/config {:mvn/version "1.2.0"}}
+                yogthos/config {:mvn/version "1.2.0"}
+                http-kit.fake/http-kit.fake {:mvn/version "0.2.1"}}
    :extra-paths ["dev-resources"]
    :exec-fn monkey.test/all}
 
