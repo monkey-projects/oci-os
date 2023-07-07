@@ -11,22 +11,24 @@
       (.generateKeyPair)
       (.getPrivate)))
 
-(defonce test-config {:user-ocid "test-user"
-                      :tenancy-ocid "test-tenancy"
-                      :private-key (generate-key)
-                      :key-fingerprint "test-fingerprint"
-                      :region "test-region"})
+(def test-ctx (sut/make-context
+               {:user-ocid "test-user"
+                :tenancy-ocid "test-tenancy"
+                :private-key (generate-key)
+                :key-fingerprint "test-fingerprint"
+                :region "test-region"}))
 
 (deftest get-namespace
   (testing "sends GET request to backend"
     (f/with-fake-http
       ["https://objectstorage.test-region.oraclecloud.com/n" {:body "\"test-ns\""}]
       
-      (is (= "test-ns" @(sut/get-namespace test-config))))))
+      (is (= "test-ns" @(sut/get-namespace test-ctx))))))
 
 (deftest list-buckets
   (testing "sends GET request to backend"
     (f/with-fake-http
-      ["https://objectstorage.test-region.oraclecloud.com/n/test-ns/b?compartmentId=test-cid" {:body "{}"}]
+      ["https://objectstorage.test-region.oraclecloud.com/n/test-ns/b"
+       {:body "{\"name\":\"test bucket\"}"}]
       
-      (is (= {} @(sut/list-buckets test-config "test-ns" "test-cid"))))))
+      (is (= {:name "test bucket"} @(sut/list-buckets test-ctx "test-ns" "test-cid"))))))
