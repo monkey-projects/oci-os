@@ -31,7 +31,7 @@
      :body
      parse-body)))
 
-(defn get! [conf path]
+(defn- get! [conf path]
   (execute-request conf
                    {:url (make-url conf path)
                     :method :get}))
