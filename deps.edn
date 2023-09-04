@@ -7,7 +7,7 @@
  
  :aliases
  {:dev
-  {:extra-paths ["env/dev"]}
+  {:extra-paths ["env/dev" "dev-resources"]}
 
   :test
   {:extra-deps {com.monkeyprojects/build {:mvn/version "0.1.0-SNAPSHOT"}
