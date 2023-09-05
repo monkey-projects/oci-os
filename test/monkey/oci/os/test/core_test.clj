@@ -29,7 +29,7 @@
       ["https://objectstorage.test-region.oraclecloud.com/n" {:body "\"test-ns\""
                                                               :headers {:content-type "application/json"}}]
       
-      (is (= "test-ns" @(sut/get-namespace test-ctx))))))
+      (is (= "test-ns" (:body @(sut/get-namespace test-ctx)))))))
 
 (deftest list-buckets
   (testing "sends GET request to backend"
@@ -38,8 +38,10 @@
        {:body "{\"name\":\"test bucket\"}"
         :headers {:content-type "application/json"}}]
       
-      (is (= {:name "test bucket"} @(sut/list-buckets test-ctx {:ns "test-ns"
-                                                                :compartment-id "test-cid"}))))))
+      (is (= {:name "test bucket"} (-> (sut/list-buckets test-ctx {:ns "test-ns"
+                                                                   :compartment-id "test-cid"})
+                                       (deref)
+                                       :body))))))
 
 (deftest get-bucket
   (testing "invokes `:get-bucket` request"

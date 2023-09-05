@@ -6,53 +6,13 @@
              [core :as martian]
              [httpkit :as martian-http]
              [interceptors :as mi]]
-            [monkey.oci.sign :as sign]
+            [monkey.oci.os.signing :as sign]
             [schema.core :as s]))
 
 (set! *warn-on-reflection* true)
 
 (defn- host [{:keys [region]}]
   (format "https://objectstorage.%s.oraclecloud.com" region))
-
-(defn- parse-body [b]
-  (json/read-str b :key-fn csk/->kebab-case-keyword))
-
-(defn- url-with-query
-  "Builds the full url, including query params"
-  [{:keys [url query-params]}]
-  (letfn [(->str [qp]
-            (->> qp
-                 (map (fn [[k v]]
-                        ;; TODO Url escaping
-                        (str (name k) "=" v)))
-                 (cs/join "&")))]
-    (cond-> url
-      (not-empty query-params) (str "?" (->str query-params)))))
-
-(defn- sign-request
-  "Adds authorization signature to the Martian request"
-  [conf {:keys [request handler] :as ctx}]
-  (let [sign-headers (cond->
-                         (-> request
-                             (assoc :url (url-with-query request))
-                             (sign/sign-headers))
-                       ;; Special treatment for some put operations
-                         (and (= :put (:method handler))
-                              (= :put-object (:route-name handler)))
-                         (select-keys ["date" "(request-target)" "host"]))
-        headers (sign/sign conf sign-headers)]
-    (update-in ctx [:request :headers] sign/merge-headers headers)))
-
-(defn signer [conf]
-  {:name ::sign-request
-   :enter (partial sign-request conf)})
-
-(def body-parser
-  {:name ::parse-body
-   :leave (fn [ctx]
-            (cond-> ctx
-              (= "application/json" (get-in ctx [:response :headers :content-type]))
-              (update :response (comp parse-body :body))))})
 
 (def bucket-path ["/n/" :ns "/b/" :bucketName])
 (def bucket-path-schema {:ns s/Str :bucketName s/Str})
@@ -69,12 +29,14 @@
     :method :get
     :path-parts ["/n/" :ns "/b"]
     :path-schema {:ns s/Str}
-    :query-schema {:compartmentId s/Str}}
+    :query-schema {:compartmentId s/Str}
+    :produces #{"application/json"}}
    
    {:route-name :get-bucket
     :method :get
     :path-parts bucket-path
-    :path-schema bucket-path-schema}
+    :path-schema bucket-path-schema
+    :produces #{"application/json"}}
 
    {:route-name :list-objects
     :method :get
@@ -87,7 +49,6 @@
                    (s/optional-key :delimiter) s/Str
                    (s/optional-key :fields) s/Str
                    (s/optional-key :startAfter) s/Str}
-    :consumes #{"application/json"}
     :produces #{"application/json"}}
 
    {:route-name :put-object
@@ -148,10 +109,10 @@
   (martian/bootstrap
    (host conf)
    routes
-   {:interceptors (concat [body-parser]
-                          martian/default-interceptors
+   {:interceptors (concat martian/default-interceptors
                           [mi/default-encode-body
-                           (signer conf)
+                           mi/default-coerce-response
+                           (sign/signer conf)
                            martian-http/perform-request])}))
 
 (defn- make-request-fn
@@ -161,8 +122,7 @@
    route definition."
   [id]
   (fn [ctx & [params]]
-    (martian/response-for ctx id params #_(merge {::martian/request {:headers {"Accept" "application/json"}}}
-                                        params))))
+    (martian/response-for ctx id params)))
 
 (def get-namespace (make-request-fn :get-namespace))
 
