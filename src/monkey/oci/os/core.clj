@@ -2,8 +2,6 @@
   (:require [camel-snake-kebab.core :as csk]
             [clojure.data.json :as json]
             [clojure.string :as cs]
-            [clojure.tools.logging :as log]
-            [manifold.deferred :as md]
             [martian
              [core :as martian]
              [httpkit :as martian-http]
@@ -90,8 +88,7 @@
                    (s/optional-key :fields) s/Str
                    (s/optional-key :startAfter) s/Str}
     :consumes #{"application/json"}
-    :produces #{"application/json"}
-    }
+    :produces #{"application/json"}}
 
    {:route-name :put-object
     :method :put
@@ -153,8 +150,7 @@
    routes
    {:interceptors (concat [body-parser]
                           martian/default-interceptors
-                          [#_encode-body
-                           mi/default-encode-body
+                          [mi/default-encode-body
                            (signer conf)
                            martian-http/perform-request])}))
 
