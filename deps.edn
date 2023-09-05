@@ -3,7 +3,9 @@
         camel-snake-kebab/camel-snake-kebab {:mvn/version "0.4.3"}
         http-kit/http-kit {:mvn/version "2.6.0"}
         buddy/buddy-sign {:mvn/version "3.5.346"}
-        manifold/manifold {:mvn/version "0.4.1"}}
+        manifold/manifold {:mvn/version "0.4.1"}
+        com.oracle.oci.sdk/oci-java-sdk-common {:mvn/version "3.17.1"}
+        com.oracle.oci.sdk/oci-java-sdk-common-httpclient-jersey {:mvn/version "3.17.1"}}
  
  :aliases
  {:dev

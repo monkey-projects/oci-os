@@ -1,5 +1,6 @@
 (ns monkey.oci.os.test.core-test
   (:require [clojure.test :refer :all]
+            [clojure.tools.logging :as log]
             [clojure.data.json :as json]
             [martian.test :as mt]
             [monkey.oci.os.core :as sut]
@@ -100,7 +101,20 @@
     (let [ctx (mt/respond-with-constant test-ctx {:rename-object {:body "test"}})]
       (is (map? @(sut/rename-object ctx {:ns "test-ns" :bucket-name "test-bucket"
                                          :rename {:source-name "old.txt"
-                                                  :new-name "new.txt"}}))))))
+                                                  :new-name "new.txt"}})))))
+
+  (testing "sends authorization header"
+    (f/with-fake-http [(constantly true) (fn [f req c]
+                                           (c {:body (:headers req)}))]
+      (let [resp (-> test-ctx
+                     (sut/rename-object {:ns "test-ns" :bucket-name "test-bucket"
+                                         :rename {:source-name "old.txt"
+                                                  :new-name "new.txt"}})
+                     (deref)
+                     :body)]
+        (is (string? (get resp "authorization")))
+        (is (string? (get resp "content-length")))
+        (is (= "application/json" (get resp "content-type")))))))
 
 (deftest copy-object
   (testing "invokes `:copy-object` request"

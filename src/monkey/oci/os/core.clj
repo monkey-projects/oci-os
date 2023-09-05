@@ -34,8 +34,6 @@
 (defn- sign-request
   "Adds authorization signature to the Martian request"
   [conf {:keys [request handler] :as ctx}]
-  (log/info "Signing request with body:" (:body request) "(length:" (count (:body request)) ")")
-  (log/info "Url:" (:url request))
   (let [sign-headers (cond->
                          (-> request
                              (assoc :url (url-with-query request))
@@ -45,8 +43,7 @@
                               (= :put-object (:route-name handler)))
                          (select-keys ["date" "(request-target)" "host"]))
         headers (sign/sign conf sign-headers)]
-    (log/info "Sign headers:" sign-headers)
-    (update-in ctx [:request :headers] merge headers)))
+    (update-in ctx [:request :headers] sign/merge-headers headers)))
 
 (defn signer [conf]
   {:name ::sign-request
@@ -91,7 +88,10 @@
                    (s/optional-key :limit) s/Int
                    (s/optional-key :delimiter) s/Str
                    (s/optional-key :fields) s/Str
-                   (s/optional-key :startAfter) s/Str}}
+                   (s/optional-key :startAfter) s/Str}
+    :consumes #{"application/json"}
+    :produces #{"application/json"}
+    }
 
    {:route-name :put-object
     :method :put
@@ -123,7 +123,8 @@
                            (s/optional-key :srcObjIfMatchETag) s/Str
                            (s/optional-key :newObjIfMatchETag) s/Str
                            (s/optional-key :newObjIfNoneMatchETag) s/Str}}
-    :consumes #{"application/json"}}
+    :consumes #{"application/json"}
+    :produces #{"application/json"}}
 
    {:route-name :copy-object
     :method :post
@@ -140,7 +141,8 @@
                          (s/optional-key :destinationObjectIfNoneMatchETag) s/Str
                          (s/optional-key :destinationObjectMetadata) s/Any
                          (s/optional-key :destinationObjectStorageTier) s/Str}}
-    :consumes #{"application/json"}}])
+    :consumes #{"application/json"}
+    :produces #{"application/json"}}])
 
 (defn make-context
   "Creates Martian context for the given configuration.  This context
@@ -151,7 +153,8 @@
    routes
    {:interceptors (concat [body-parser]
                           martian/default-interceptors
-                          [mi/default-encode-body
+                          [#_encode-body
+                           mi/default-encode-body
                            (signer conf)
                            martian-http/perform-request])}))
 
@@ -162,7 +165,7 @@
    route definition."
   [id]
   (fn [ctx & [params]]
-    (martian/response-for ctx id (merge {::martian/request {:headers {"Accept" "application/json"}}}
+    (martian/response-for ctx id params #_(merge {::martian/request {:headers {"Accept" "application/json"}}}
                                         params))))
 
 (def get-namespace (make-request-fn :get-namespace))
