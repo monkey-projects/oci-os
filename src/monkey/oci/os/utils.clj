@@ -4,14 +4,16 @@
   (:import java.util.Base64
            java.io.StringReader))
 
+(set! *warn-on-reflection* true)
+
 (defn base64-decode
   "Decodes given base64 string back into a string"
-  [s]
+  [^String s]
   (-> (Base64/getDecoder)
       (.decode s)
       (String.)))
 
-(defn- ->reader
+(defn- ^java.io.Reader ->reader
   "If `s` points to an existing file, open it as a file reader,
    otherwise returns a string reader, assuming the contents is
    base64 encoded."
@@ -21,6 +23,6 @@
     ;; Read it, decode it, and put it back in a reader
     (StringReader. (base64-decode s))))
 
-(defn load-privkey [src]
+(defn load-privkey [^String src]
   (with-open [r (->reader src)]
     (pem/read-privkey r nil)))
