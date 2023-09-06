@@ -11,9 +11,6 @@
 
 (set! *warn-on-reflection* true)
 
-(defn- host [{:keys [region]}]
-  (format "https://objectstorage.%s.oraclecloud.com" region))
-
 (def bucket-path ["/n/" :ns "/b/" :bucketName])
 (def bucket-path-schema {:ns s/Str :bucketName s/Str})
 
@@ -102,6 +99,9 @@
     :consumes #{"application/json"}
     :produces #{"application/json"}}])
 
+
+(def host (comp (partial format "https://objectstorage.%s.oraclecloud.com") :region))
+
 (defn make-context
   "Creates Martian context for the given configuration.  This context
    should be passed to subsequent requests."
@@ -127,15 +127,10 @@
   (fn [ctx & [params]]
     (martian/response-for ctx id params)))
 
-(def get-namespace (make-request-fn :get-namespace))
+(defn define-endpoints
+  "Creates a function for each of the defined routes"
+  [routes]
+  (doseq [{:keys [route-name]} routes]
+    (intern *ns* (symbol route-name) (make-request-fn route-name))))
 
-(def list-buckets (make-request-fn :list-buckets))
-(def get-bucket (make-request-fn :get-bucket))
-
-(def list-objects (make-request-fn :list-objects))
-(def put-object (make-request-fn :put-object))
-(def get-object (make-request-fn :get-object))
-(def delete-object (make-request-fn :delete-object))
-(def head-object (make-request-fn :head-object))
-(def copy-object (make-request-fn :copy-object))
-(def rename-object (make-request-fn :rename-object))
+(define-endpoints routes)
