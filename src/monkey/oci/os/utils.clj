@@ -23,6 +23,10 @@
     ;; Read it, decode it, and put it back in a reader
     (StringReader. (base64-decode s))))
 
-(defn load-privkey [^String src]
+(defn load-privkey
+  "Loads private key from either source file, or string.  If `src` points
+   to an existing file, it's loaded from that file.  If it's a string, it
+   must be base64 encoded."
+  [^String src]
   (with-open [r (->reader src)]
     (pem/read-privkey r nil)))
