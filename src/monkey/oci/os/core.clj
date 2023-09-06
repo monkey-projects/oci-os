@@ -6,7 +6,7 @@
              [core :as martian]
              [httpkit :as martian-http]
              [interceptors :as mi]]
-            [monkey.oci.os.signing :as sign]
+            [monkey.oci.sign.martian :as sm]
             [schema.core :as s]))
 
 (set! *warn-on-reflection* true)
@@ -106,14 +106,17 @@
   "Creates Martian context for the given configuration.  This context
    should be passed to subsequent requests."
   [conf]
-  (martian/bootstrap
-   (host conf)
-   routes
-   {:interceptors (concat martian/default-interceptors
-                          [mi/default-encode-body
-                           mi/default-coerce-response
-                           (sign/signer conf)
-                           martian-http/perform-request])}))
+  (letfn [(exclude? [{:keys [handler]}]
+            (and (= :put (:method handler))
+                 (= :put-object (:route-name handler))))]
+    (martian/bootstrap
+     (host conf)
+     routes
+     {:interceptors (concat martian/default-interceptors
+                            [mi/default-encode-body
+                             mi/default-coerce-response
+                             (sm/signer (assoc conf :exclude-body? exclude?))
+                             martian-http/perform-request])})))
 
 (defn- make-request-fn
   "Creates a request function for the given request id.  The
