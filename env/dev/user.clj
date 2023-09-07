@@ -11,7 +11,7 @@
 
 (def cid (:compartment-ocid env))
 
-(def ctx (c/make-context conf))
+(def ctx (c/make-client conf))
 
 (def bucket-ns (delay @(c/get-namespace ctx)))
 (def bucket-name "test-dev")
@@ -31,6 +31,7 @@
                       :martian.core/request {:headers {"Content-Type" "text/plain"}}}))
 
 (defn delete-object [obj]
+  (log/info "Deleting object" obj)
   @(c/delete-object ctx {:ns @bucket-ns :bucket-name bucket-name :object-name obj}))
 
 (defn rename-object [from to]

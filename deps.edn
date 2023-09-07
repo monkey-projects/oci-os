@@ -1,24 +1,23 @@
-{:deps {com.monkeyprojects/oci-sign {:mvn/version "0.1.0-SNAPSHOT"}
+{:deps {com.monkeyprojects/oci-sign {:mvn/version "0.1.0-SNAPSHOT"
+                                     :exclusions [org.slf4j/slfj4-nop]}
         com.github.oliyh/martian-httpkit {:mvn/version "0.1.24"}
-        camel-snake-kebab/camel-snake-kebab {:mvn/version "0.4.3"}
         http-kit/http-kit {:mvn/version "2.6.0"}
         buddy/buddy-sign {:mvn/version "3.5.346"}
-        manifold/manifold {:mvn/version "0.4.1"}
-        com.oracle.oci.sdk/oci-java-sdk-common {:mvn/version "3.17.1"}
-        com.oracle.oci.sdk/oci-java-sdk-common-httpclient-jersey {:mvn/version "3.17.1"}}
+        manifold/manifold {:mvn/version "0.4.1"}}
  
  :aliases
  {:dev
   {:extra-paths ["env/dev" "dev-resources"]}
 
   :test
-  {:extra-deps {com.monkeyprojects/build {:mvn/version "0.1.0-SNAPSHOT"}
+  {:extra-deps {com.monkeyprojects/build {:mvn/version "0.1.0-SNAPSHOT"
+                                          :exclusions [org.slf4j/slfj4-nop]}
                 org.slf4j/slf4j-api {:mvn/version "2.0.7"}
                 ch.qos.logback/logback-classic {:mvn/version "1.4.8"}
                 yogthos/config {:mvn/version "1.2.0"}
                 http-kit.fake/http-kit.fake {:mvn/version "0.2.1"}
                 com.github.oliyh/martian-test {:mvn/version "0.1.24"}}
-   :extra-paths ["dev-resources"]
+   :extra-paths ["test" "dev-resources"]
    :exec-fn monkey.test/all}
 
   :watch
@@ -27,8 +26,13 @@
   :junit
   {:exec-fn monkey.test/junit}
 
+  :coverage
+  {:exec-fn monkey.test/coverage
+   :exec-args {:ns-regex ["monkey.oci.os.*"]}}
+
   :jar
-  {:extra-deps {com.monkeyprojects/build {:mvn/version "0.1.0-SNAPSHOT"}}
+  {:extra-deps {com.monkeyprojects/build {:mvn/version "0.1.0-SNAPSHOT"
+                                          :exclusions [org.slf4j/slfj4-nop]}}
    :exec-fn monkey.build/jar
    :exec-args {:jar "target/oci-os.jar"
                :lib "com.monkeyprojects/oci-os"
