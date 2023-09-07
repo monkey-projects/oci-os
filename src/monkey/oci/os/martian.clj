@@ -4,6 +4,7 @@
              [core :as martian]
              [httpkit :as martian-http]
              [interceptors :as mi]]
+            [monkey.oci.os.utils :as u]
             [monkey.oci.sign.martian :as sm]
             [schema.core :as s]))
 
@@ -118,19 +119,4 @@
 
 (def send-request martian/response-for)
 
-(defn- make-request-fn
-  "Creates a request function for the given request id.  The
-   function takes the context (created using `make-context`) and
-   any parameters.  Which parameters are accepted depend on the
-   route definition."
-  [id]
-  (fn [ctx & [params]]
-    (martian/response-for ctx id params)))
-
-(defn define-endpoints
-  "Creates a function for each of the defined routes"
-  [routes]
-  (doseq [{:keys [route-name]} routes]
-    (intern *ns* (symbol route-name) (make-request-fn route-name))))
-
-(define-endpoints routes)
+(u/define-endpoints *ns* routes martian/response-for)

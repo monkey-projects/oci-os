@@ -11,9 +11,9 @@
 
 (def cid (:compartment-ocid env))
 
-(def ctx (c/make-context conf))
+(def ctx (c/make-client conf))
 
-(def bucket-ns (delay (:body @(c/get-namespace ctx))))
+(def bucket-ns (delay @(c/get-namespace ctx)))
 (def bucket-name "test-dev")
 
 (defn list-objects []

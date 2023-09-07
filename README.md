@@ -42,6 +42,10 @@ In order to gain access, you must provide the necessary configuration.  This
 is then used to sign the request.  See the [oci-sign library](https://github.com/monkey-projects/oci-sign)
 for details.
 
+The functions in the core namespace will unwrap the response by default, returning the
+response body on success.  If there is a failure, an exception will be thrown, with the
+full response in the `ex-data`.
+
 ### Uploading Files
 
 Creating or updating files is done with the `put-object` function.  The options map should
@@ -54,11 +58,11 @@ The upload and download requests don't produce JSON so the calls return the unde
 HttpKit response, which contains also a `:body` value.
 ```clojure
 @(os/put-object ctx {:ns "..." :bucket-name "test-bucket" :object-name "test.txt" :contents "this is a test file"})
-;; This will return a map with :status, :body, etc...  It should return status 200.
+;; This will return an empty string on success
 
 # Now you can download the file as well
 @(os/get-object {:ns "..." :bucket-name "test-bucket" :object-name "test.txt"})
-;; Returns a map with the file contents in the :body.  Depending on the content type,
+;; Returns the file contents from the :body.  Depending on the content type,
 ;; this can be a string or an input stream.
 ```
 
@@ -72,6 +76,24 @@ specifying the raw header in the request options:
 ```
 This will explicitly pass in the `Content-Type` header to the backend, which will also
 be returned when you download the file.
+
+### Low-level Calls
+
+Should you need access to the full response, for example to read certain headers like `ETag`,
+you can send requests using the lower-level `monkey.oci.os.martian` namespace.  These contain
+about the same functions (one for every defined route), but they won't interpret the response,
+and instead return the full response map.
+
+```clojure
+(require '[monkey.oci.os.martian :as m])
+
+@(m/head-object {:ns ...})
+;; This will return the full response, with :headers to inspect, etc...
+```
+
+This allows you to have more control over how requests are handled.  This can also be useful
+should you want to handle 'expected' 4xx responses, instead of catching exceptions (which is
+bad form if you're actually expecting it to happen, right?)
 
 ## Copyright
 

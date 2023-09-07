@@ -1,5 +1,6 @@
 (ns monkey.oci.os.test.core-test
   (:require [clojure.test :refer :all]
+            [manifold.deferred :as md]
             [monkey.oci.os
              [core :as sut]
              [martian :as martian]]))
@@ -14,7 +15,18 @@
                                  :tenancy-ocid "test-tenancy"
                                  :key-fingerprint "test-fingerprint"})]
 
-    (with-redefs [martian/send-request (constantly "ok")]
-      
-      (testing "sends request using martian"
-        (is (some? (sut/invoke-endpoint client :get-namespace)))))))
+    (testing "returns body async on 2xx response"
+      (with-redefs [martian/send-request (constantly
+                                          (future {:status 200
+                                                   :body "ok"}))]
+        (is (= "ok" @(sut/invoke-endpoint client :get-namespace {})))))
+
+    (testing "throws exception on 4xx status"
+      (with-redefs [martian/send-request (constantly
+                                          (future {:status 404
+                                                   :body "not found"}))]
+        (is (thrown? Exception @(sut/invoke-endpoint client :get-namespace {})))))))
+
+(deftest get-namespace
+  (testing "function exists"
+    (is (fn? sut/get-namespace))))
