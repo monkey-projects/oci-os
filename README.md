@@ -15,6 +15,11 @@ The lib provides two layers to access the API.  One is the low-level access,
 that is just a thin layer on top of the REST calls.  On top of that there is
 a layer that provides convenience functions for often-used scenarios.
 
+Under the hood it uses [Martian](https://github.com/oliyh/martian) to send HTTP
+requests to the OCI API.  We're using the [Httpkit](https://github.com/http-kit/http-kit)
+plugin, because that's a lib that is as "pure" Clojure as possible with almost no
+external dependencies.
+
 ## Usage
 
 [![Clojars Project](https://img.shields.io/clojars/v/com.monkeyprojects/oci-os.svg)](https://clojars.org/com.monkeyprojects/oci-os)
@@ -22,7 +27,7 @@ a layer that provides convenience functions for often-used scenarios.
 
 Include the library in your project:
 ```clojure
-{:deps {monkey/oci-os {:mvn/version ..latest..}}}
+{:deps {com.monkeyprojects/oci-os {:mvn/version ..latest..}}}
 ```
 
 Then include the namespace and create a context:
@@ -32,19 +37,22 @@ Then include the namespace and create a context:
 ;; Configuration, must contain the necessary properties to connect,
 ;; see oci-sign for that
 (def config {:user-ocid ... }
-(def ctx (os/make-context config))
+(def ctx (os/make-client config))
 
 ;; Now you can make requests
-@(os/get-namespace ctx)  ; Returns the bucket namespace
+(def bucket-ns @(os/get-namespace ctx))  ; Returns the bucket namespace
+@(os/list-objects ctx {:ns bucket-ns :bucket-name "my-bucket"}) ; Lists bucket objects
 ```
 
 In order to gain access, you must provide the necessary configuration.  This
 is then used to sign the request.  See the [oci-sign library](https://github.com/monkey-projects/oci-sign)
-for details.
+for details, but you will need your tenancy OCID, user OCID, private key, key fingerprint
+and the region you're targeting.
 
-The functions in the core namespace will unwrap the response by default, returning the
+The functions in the `core` namespace will unwrap the response by default, returning the
 response body on success.  If there is a failure, an exception will be thrown, with the
-full response in the `ex-data`.
+full response in the `ex-data`.  See below on how to send requests and gain access to
+the raw response map.
 
 ### Uploading Files
 
@@ -94,6 +102,13 @@ and instead return the full response map.
 This allows you to have more control over how requests are handled.  This can also be useful
 should you want to handle 'expected' 4xx responses, instead of catching exceptions (which is
 bad form if you're actually expecting it to happen, right?)
+
+## TODO
+
+ - Take care of pagination.
+ - Provide functionality for handling multipart uploads for large files.
+ - Add something that automagically generates the Martian routes from the OCI provided Java libs.
+   (Or find the OpenAPI specs.)
 
 ## Copyright
 
