@@ -2,9 +2,8 @@
   "Higher level core functionality.  These mostly delegate to the `martian` ns,
    which provides the actual HTTP invocation functions."
   (:require [manifold.deferred :as md]
-            [monkey.oci.os
-             [martian :as m]
-             [utils :as u]]))
+            [monkey.oci.os.martian :as m]
+            [monkey.oci.common.utils :as u]))
 
 (def make-client m/make-context)
 

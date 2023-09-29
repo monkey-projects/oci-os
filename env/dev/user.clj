@@ -1,9 +1,8 @@
 (ns user
   (:require [clojure.tools.logging :as log]
             [config.core :refer [env]]
-            [monkey.oci.os
-             [core :as c]
-             [utils :as u]]))
+            [monkey.oci.os.core :as c]
+            [monkey.oci.common.utils :as u]))
 
 (def conf (-> env
               (select-keys [:user-ocid :tenancy-ocid :key-fingerprint :private-key :region])

@@ -1,11 +1,9 @@
 (ns monkey.oci.os.martian
   "Low level functionality that uses Martian and Httpkit to send HTTP requests."
-  (:require [martian
-             [core :as martian]
-             [httpkit :as martian-http]
-             [interceptors :as mi]]
-            [monkey.oci.os.utils :as u]
-            [monkey.oci.sign.martian :as sm]
+  (:require [martian.core :as martian]
+            [monkey.oci.common
+             [martian :as cm]
+             [utils :as u]]
             [schema.core :as s]))
 
 (set! *warn-on-reflection* true)
@@ -108,14 +106,7 @@
   (letfn [(exclude? [{:keys [handler]}]
             (and (= :put (:method handler))
                  (= :put-object (:route-name handler))))]
-    (martian/bootstrap
-     (host conf)
-     routes
-     {:interceptors (concat martian/default-interceptors
-                            [mi/default-encode-body
-                             mi/default-coerce-response
-                             (sm/signer (assoc conf :exclude-body? exclude?))
-                             martian-http/perform-request])})))
+    (cm/make-context (assoc conf :exclude-body? exclude?) host routes)))
 
 (def send-request martian/response-for)
 

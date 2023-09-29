@@ -1,5 +1,4 @@
-{:deps {com.monkeyprojects/oci-sign {:mvn/version "0.1.1"}
-        com.github.oliyh/martian-httpkit {:mvn/version "0.1.24"}
+{:deps {com.monkeyprojects/oci-common {:mvn/version "0.1.0-SNAPSHOT"}
         http-kit/http-kit {:mvn/version "2.6.0"}
         buddy/buddy-sign {:mvn/version "3.5.346"}
         manifold/manifold {:mvn/version "0.4.1"}}
