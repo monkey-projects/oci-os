@@ -30,3 +30,12 @@
 (deftest get-namespace
   (testing "function exists"
     (is (fn? sut/get-namespace))))
+
+(deftest head-object
+  (testing "true if request returns 200"
+    (with-redefs [martian/head-object (constantly (future {:status 200}))]
+      (is (true? @(sut/head-object {} {})))))
+
+  (testing "false if request returns 404"
+    (with-redefs [martian/head-object (constantly (future {:status 404}))]
+      (is (false? @(sut/head-object {} {}))))))

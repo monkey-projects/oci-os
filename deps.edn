@@ -35,5 +35,8 @@
                :version "0.1.0-SNAPSHOT"
                :scm {:url "https://github.com/monkey-projects/oci-os"}}}
 
+  :install
+  {:exec-fn monkey.build/jar+install}
+
   :deploy
   {:exec-fn monkey.build/deploy}}}

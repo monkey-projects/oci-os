@@ -40,3 +40,6 @@
                      :bucket-name bucket-name
                      :rename {:source-name from
                               :new-name to}}))
+
+(defn head-object [obj]
+  @(c/head-object ctx {:ns @bucket-ns :bucket-name bucket-name :object-name obj}))
