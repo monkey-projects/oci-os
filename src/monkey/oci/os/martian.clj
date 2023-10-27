@@ -8,11 +8,13 @@
 
 (set! *warn-on-reflection* true)
 
-(def bucket-path ["/n/" :ns "/b/" :bucketName])
-(def bucket-path-schema {:ns s/Str :bucketName s/Str})
+(def bucket-path ["/n/" :ns "/b/" :bucket-name])
+(def bucket-path-schema {:ns s/Str :bucket-name s/Str})
 
-(def object-path (concat bucket-path ["/o/" :objectName]))
-(def object-path-schema (assoc bucket-path-schema :objectName s/Str))
+(def object-path (concat bucket-path ["/o/" :object-name]))
+(def object-path-schema (assoc bucket-path-schema :object-name s/Str))
+
+(def json #{"application/json"})
 
 (def routes
   [{:route-name :get-namespace
@@ -23,14 +25,14 @@
     :method :get
     :path-parts ["/n/" :ns "/b"]
     :path-schema {:ns s/Str}
-    :query-schema {:compartmentId s/Str}
-    :produces #{"application/json"}}
+    :query-schema {:compartment-id s/Str}
+    :produces json}
    
    {:route-name :get-bucket
     :method :get
     :path-parts bucket-path
     :path-schema bucket-path-schema
-    :produces #{"application/json"}}
+    :produces json}
 
    {:route-name :list-objects
     :method :get
@@ -42,8 +44,8 @@
                    (s/optional-key :limit) s/Int
                    (s/optional-key :delimiter) s/Str
                    (s/optional-key :fields) s/Str
-                   (s/optional-key :startAfter) s/Str}
-    :produces #{"application/json"}}
+                   (s/optional-key :start-after) s/Str}
+    :produces json}
 
    {:route-name :put-object
     :method :put
@@ -58,43 +60,43 @@
    
    {:route-name :delete-object
     :method :delete
-    :path-parts ["/n/" :ns "/b/" :bucketName "/o/" :objectName]
-    :path-schema {:ns s/Str :bucketName s/Str :objectName s/Str}}
+    :path-parts object-path
+    :path-schema object-path-schema}
 
    {:route-name :head-object
     :method :head
-    :path-parts ["/n/" :ns "/b/" :bucketName "/o/" :objectName]
-    :path-schema {:ns s/Str :bucketName s/Str :objectName s/Str}}
+    :path-parts object-path
+    :path-schema object-path-schema}
 
    {:route-name :rename-object
     :method :post
     :path-parts (conj bucket-path "/actions/renameObject")
     :path-schema bucket-path-schema
-    :body-schema {:rename {:sourceName s/Str
-                           :newName s/Str
-                           (s/optional-key :srcObjIfMatchETag) s/Str
-                           (s/optional-key :newObjIfMatchETag) s/Str
-                           (s/optional-key :newObjIfNoneMatchETag) s/Str}}
-    :consumes #{"application/json"}
-    :produces #{"application/json"}}
+    :body-schema {:rename {:source-name s/Str
+                           :new-name s/Str
+                           (s/optional-key :src-obj-if-match-e-tag) s/Str
+                           (s/optional-key :new-obj-if-match-e-tag) s/Str
+                           (s/optional-key :new-obj-if-none-match-e-tag) s/Str}}
+    :consumes json
+    :produces json}
 
    {:route-name :copy-object
     :method :post
     :path-parts (conj bucket-path "/actions/copyObject")
     :path-schema bucket-path-schema
-    :body-schema {:copy {:sourceObjectName s/Str
-                         (s/optional-key :sourceObjIfMatchETag) s/Str
-                         (s/optional-key :sourceVersionId) s/Str
-                         :destinationBucket s/Str
-                         :destinationNamespace s/Str
-                         :destinationObjectName s/Str
-                         :destinationRegion s/Str
-                         (s/optional-key :destinationObjectIfMatchETag) s/Str
-                         (s/optional-key :destinationObjectIfNoneMatchETag) s/Str
-                         (s/optional-key :destinationObjectMetadata) s/Any
-                         (s/optional-key :destinationObjectStorageTier) s/Str}}
-    :consumes #{"application/json"}
-    :produces #{"application/json"}}])
+    :body-schema {:copy {:source-object-name s/Str
+                         (s/optional-key :source-obj-if-match-e-tag) s/Str
+                         (s/optional-key :source-version-id) s/Str
+                         :destination-bucket s/Str
+                         :destination-namespace s/Str
+                         :destination-object-name s/Str
+                         :destination-region s/Str
+                         (s/optional-key :destination-object-if-match-e-tag) s/Str
+                         (s/optional-key :destination-object-if-none-match-e-tag) s/Str
+                         (s/optional-key :destination-object-metadata) s/Any
+                         (s/optional-key :destination-object-storage-tier) s/Str}}
+    :consumes json
+    :produces json}])
 
 
 (def host (comp (partial format "https://objectstorage.%s.oraclecloud.com") :region))
