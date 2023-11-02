@@ -51,7 +51,8 @@
     :method :put
     :path-parts object-path
     :path-schema object-path-schema
-    :body-schema {:contents s/Any}}
+    :body-schema {:contents s/Any}
+    :header-schema {(s/optional-key :content-type) s/Str}}
 
    {:route-name :get-object
     :method :get
