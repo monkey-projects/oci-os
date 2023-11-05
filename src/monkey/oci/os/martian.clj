@@ -3,6 +3,7 @@
   (:require [martian.core :as martian]
             [monkey.oci.common
              [martian :as cm]
+             [pagination :as p]
              [utils :as u]]
             [schema.core :as s]))
 
@@ -21,12 +22,13 @@
     :method :get
     :path-parts ["/n"]}
    
-   {:route-name :list-buckets
-    :method :get
-    :path-parts ["/n/" :ns "/b"]
-    :path-schema {:ns s/Str}
-    :query-schema {:compartment-id s/Str}
-    :produces json}
+   (p/paged-route
+    {:route-name :list-buckets
+     :method :get
+     :path-parts ["/n/" :ns "/b"]
+     :path-schema {:ns s/Str}
+     :query-schema {:compartment-id s/Str}
+     :produces json})
    
    {:route-name :get-bucket
     :method :get
@@ -34,18 +36,19 @@
     :path-schema bucket-path-schema
     :produces json}
 
-   {:route-name :list-objects
-    :method :get
-    :path-parts (conj bucket-path "/o")
-    :path-schema bucket-path-schema
-    :query-schema {(s/optional-key :prefix) s/Str
-                   (s/optional-key :start) s/Str
-                   (s/optional-key :end) s/Str
-                   (s/optional-key :limit) s/Int
-                   (s/optional-key :delimiter) s/Str
-                   (s/optional-key :fields) s/Str
-                   (s/optional-key :start-after) s/Str}
-    :produces json}
+   (p/paged-route
+    {:route-name :list-objects
+     :method :get
+     :path-parts (conj bucket-path "/o")
+     :path-schema bucket-path-schema
+     :query-schema {(s/optional-key :prefix) s/Str
+                    (s/optional-key :start) s/Str
+                    (s/optional-key :end) s/Str
+                    (s/optional-key :limit) s/Int
+                    (s/optional-key :delimiter) s/Str
+                    (s/optional-key :fields) s/Str
+                    (s/optional-key :start-after) s/Str}
+     :produces json})
 
    {:route-name :put-object
     :method :put
