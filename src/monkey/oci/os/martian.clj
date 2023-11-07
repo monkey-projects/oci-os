@@ -65,7 +65,8 @@
    (s/optional-key :metadata) {s/Str s/Str}
    (s/optional-key :storage-tier) storage-tier})
 
-(def part-num (s/constrained s/Int (between? 1 10000)))
+(def max-multipart-count 10000)
+(def part-num (s/constrained s/Int (between? 1 max-multipart-count)))
 
 (s/defschema CommitMultipartUploadPart
   {:etag s/Str

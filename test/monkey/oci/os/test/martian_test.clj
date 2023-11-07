@@ -3,17 +3,11 @@
             [clojure.tools.logging :as log]
             [clojure.data.json :as json]
             [martian.test :as mt]
+            [monkey.oci.common.utils :refer [generate-key]]
             [monkey.oci.os.martian :as sut]
             [monkey.oci.sign :as sign]
             [org.httpkit.fake :as f]
-            [org.httpkit.client :as http])
-  (:import java.security.KeyPairGenerator))
-
-(defn generate-key []
-  (-> (doto (KeyPairGenerator/getInstance "RSA")
-        (.initialize 2048))
-      (.generateKeyPair)
-      (.getPrivate)))
+            [org.httpkit.client :as http]))
 
 (def test-config {:user-ocid "test-user"
                   :tenancy-ocid "test-tenancy"

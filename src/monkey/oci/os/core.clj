@@ -27,7 +27,7 @@
 ;; Declare functions for each of the endpoints
 (u/define-endpoints *ns* m/routes invoke-endpoint)
 
-;; Overwrite head-object
+;; Overwrite head-object to return a boolean according to status
 (defn head-object [client args]
   (md/chain
    (m/head-object client args)
