@@ -1,7 +1,9 @@
 (ns user
   (:require [clojure.tools.logging :as log]
             [config.core :refer [env]]
-            [monkey.oci.os.core :as c]
+            [monkey.oci.os
+             [core :as c]
+             [martian :as m]]
             [monkey.oci.common.utils :as u]))
 
 (def conf (-> env
@@ -15,9 +17,9 @@
 (def bucket-ns (delay @(c/get-namespace ctx)))
 (def bucket-name "test-dev")
 
-(defn list-objects []
+(defn list-objects [& [opts]]
   (log/info "Listing objects in" bucket-name)
-  @(c/list-objects ctx {:ns @bucket-ns :bucket-name bucket-name}))
+  @(c/list-objects ctx (merge {:ns @bucket-ns :bucket-name bucket-name} opts)))
 
 (defn get-object [obj]
   (log/info "Retrieving object" obj)

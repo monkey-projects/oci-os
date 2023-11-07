@@ -127,3 +127,81 @@
                                               :destination-namespace "test-ns"
                                               :destination-bucket "test-bucket"
                                               :destination-region "test-region"}}))))))
+
+(deftest multipart-uploads
+  (testing "can create multipart upload"
+    (is (= 200 (-> test-ctx
+                   (mt/respond-with-constant {:create-multipart-upload
+                                              {:status 200
+                                               :body {:bucket "test-bucket"
+                                                      :upload-id "test-id"}}})
+                   (sut/create-multipart-upload
+                    {:ns "test-ns"
+                     :bucket-name "test-bucket"
+                     :multipart {:object "test.txt"}})
+                   deref
+                   :status))))
+
+  (testing "can upload part"
+    (is (= 200 (-> test-ctx
+                   (mt/respond-with-constant {:upload-part
+                                              {:status 200}})
+                   (sut/upload-part
+                    {:ns "test-ns"
+                     :bucket-name "test-bucket"
+                     :object-name "test-obj"
+                     :upload-id "test-id"
+                     :upload-part-num 1
+                     :part "part contents"})
+                   deref
+                   :status))))
+
+  (testing "can commit upload"
+    (is (= 200 (-> test-ctx
+                   (mt/respond-with-constant {:commit-multipart-upload
+                                              {:status 200}})
+                   (sut/commit-multipart-upload
+                    {:ns "test-ns"
+                     :bucket-name "test-bucket"
+                     :object-name "test-obj"
+                     :upload-id "test-id"
+                     :multipart {:parts-to-commit [{:etag "test-tag"
+                                                    :part-num 1}]}})
+                   deref
+                   :status))))
+
+  (testing "can abort upload"
+    (is (= 204 (-> test-ctx
+                   (mt/respond-with-constant {:abort-multipart-upload
+                                              {:status 204}})
+                   (sut/abort-multipart-upload
+                    {:ns "test-ns"
+                     :bucket-name "test-bucket"
+                     :object-name "test-obj"
+                     :upload-id "test-id"})
+                   deref
+                   :status))))
+
+  (testing "can list multipart uploads"
+    (is (= 200 (-> test-ctx
+                   (mt/respond-with-constant {:list-multipart-uploads
+                                              {:status 200
+                                               :body {:items []}}})
+                   (sut/list-multipart-uploads
+                    {:ns "test-ns"
+                     :bucket-name "test-bucket"})
+                   deref
+                   :status))))
+
+  (testing "can list upload parts"
+    (is (= 200 (-> test-ctx
+                   (mt/respond-with-constant {:list-multipart-upload-parts
+                                              {:status 200
+                                               :body {:items []}}})
+                   (sut/list-multipart-upload-parts
+                    {:ns "test-ns"
+                     :bucket-name "test-bucket"
+                     :object-name "test-obj"
+                     :upload-id "test-upload"})
+                   deref
+                   :status)))))
