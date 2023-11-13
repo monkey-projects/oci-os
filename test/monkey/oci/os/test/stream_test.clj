@@ -1,13 +1,16 @@
 (ns monkey.oci.os.test.stream-test
   (:require [clojure.test :refer [deftest testing is]]
-            [manifold.stream :as ms]
+            [manifold
+             [deferred :as md]
+             [stream :as ms]]
             [martian
              [core :as martian]
              [test :as mt]]
             [monkey.oci.common.utils :as u]
             [monkey.oci.os
              [martian :as m]
-             [stream :as sut]]))
+             [stream :as sut]])
+  (:import [java.io PipedInputStream PipedOutputStream]))
 
 (def test-ctx (-> {:user-ocid "test-user"
                    :tenancy-ocid "test-tenancy"
@@ -116,4 +119,46 @@
                                          :object-name "test-obj"})]
       (is (not= :timeout (-> (ms/put! s "test part")
                              (deref 500 :timeout))))
-      (is (not= :timeout (wait-for #(pos? (count @aborted)) 1000 :timeout))))))
+      (is (not= :timeout (wait-for #(pos? (count @aborted)) 1000 :timeout)))))
+
+  (testing "aborts on upload exception")
+
+  (testing "aborts when cancel token is put on stream")
+
+  (testing "creates a new upload when max parts has been reached"))
+
+(deftest input-stream->multipart
+  (testing "creates multipart and uploads parts until stream closes"
+    (let [in (PipedInputStream.)
+          os (PipedOutputStream. in)
+          ctx (-> test-ctx
+                  (mt/respond-with
+                   {:create-multipart-upload
+                    (constantly
+                     {:status 200
+                      :body {:upload-id "test-id"
+                             :bucket "test-bucket"
+                             :object "test-obj"
+                             :namespace "test-ns"}})
+                    :upload-part
+                    (constantly
+                     {:status 200
+                      :headers {:etag "test-etag"}})
+                    :commit-multipart-upload
+                    (fn [req]
+                      {:status 200
+                       :body :committed})}))
+          p (sut/input-stream->multipart
+             ctx
+             {:ns "test-ns"
+              :bucket-name "test-bucket"
+              :object-name "test-file"
+              :input-stream in})
+          s "test string"]
+    (is (md/deferred? p) "returns a deferred")
+    (is (nil? (.write os (.getBytes s))))
+    (is (nil? (.close os)))
+    (is (nil? (.close in)))
+    (is (= {:status 200
+            :body :committed}
+           (deref p 1000 :timeout))))))

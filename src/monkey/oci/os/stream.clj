@@ -7,6 +7,39 @@
              [stream :as ms]]
             [monkey.oci.os.martian :as m]))
 
+(defn- create-multipart [ctx opts]
+  (m/create-multipart-upload ctx (-> opts
+                                     (select-keys [:ns :bucket-name])
+                                     (assoc :multipart {:object (:object-name opts)}))))
+
+(defn- committer
+  ([ctx opts]
+   (fn [etags]
+     (log/debug "Committing multipart with" (count etags) "parts")
+     (m/commit-multipart-upload
+      ctx
+      (assoc opts
+             :multipart {:parts-to-commit etags}))))
+  ([ctx opts etags]
+   (let [c (committer ctx opts)]
+     (fn []
+       (c @etags)))))
+
+(defn- collector [aborter etags]
+  (fn [idx {:keys [status headers body]}]
+    (if (= 200 status)
+      ;; Collect the etags and part numbers, we'll need them when committing
+      (do
+        (swap! etags conj (-> headers
+                              (select-keys [:etag])
+                              (assoc :part-num idx)))
+        true)
+      (do
+        (log/error "Unable to upload part, got status" status ":" (:message body))
+        (md/chain
+         (aborter)
+         (constantly false))))))
+
 (defn stream->multipart
   "Returns a Manifold `stream` that will send each message received to 
    a multipart upload.  When the stream is closed, the multipart is 
@@ -15,9 +48,7 @@
   (md/chain
    ;; Create a multipart object
    ;; TODO Handle errors
-   (m/create-multipart-upload ctx (-> opts
-                                      (select-keys [:ns :bucket-name])
-                                      (assoc :multipart {:object (:object-name opts)})))
+   (create-multipart ctx opts)
    :body
    (fn [{:keys [upload-id bucket namespace object]}]
      (let [etags (atom [])
@@ -25,25 +56,10 @@
                  :bucket-name bucket
                  :object-name object
                  :upload-id upload-id}
-           
-           commit
-           (fn []
-             @(m/commit-multipart-upload
-               ctx
-               (assoc opts
-                      :multipart {:parts-to-commit @etags})))
-           
-           collect-or-abort
-           (fn [idx {:keys [status headers body]}]
-             (some?
-              (if (= 200 status)
-                ;; Collect the etags and part numbers, we'll need them when committing
-                (swap! etags conj (-> headers
-                                      (select-keys [:etag])
-                                      (assoc :part-num idx)))
-                (do
-                  (log/error "Unable to upload part, got status" status ":" (:message body))
-                  @(m/abort-multipart-upload ctx opts)))))
+
+           commit (comp deref (committer ctx opts etags))
+           aborter #(m/abort-multipart-upload ctx opts)
+           collect-or-abort (collector aborter etags)
            
            s (doto (ms/stream)
                (ms/on-drained commit))
@@ -63,3 +79,70 @@
                 ;; Collect the etags, or abort the upload on error
                 (partial collect-or-abort idx)))))
        s))))
+
+(defn- shrink-buf
+  "Returns a new array of size `n` with bytes from `buf` copied in.  If
+   `n` is the same as the size of `buf`, just returns `buf`."
+  [buf n]
+  (if (< n (count buf))
+    (let [o (byte-array n)]
+      (System/arraycopy buf 0 o 0 n)
+      o)
+    buf))
+
+(defn input-stream->multipart
+  "Pipes an input stream to a multipart upload.  When the stream closes,
+   the multipart is committed.  `opts` requires the properties needed to
+   create a multipart (ns, bucket-name and object-name), and also `input-stream`,
+   which is the stream to read from.  If `close?` is `true`, the input
+   stream is closed when the upload aborts."
+  [ctx {in :input-stream :keys [content-type close?] :as opts :or {content-type "application/binary"}}]
+  (md/chain
+   ;; Create a multipart object
+   ;; TODO Handle errors
+   (create-multipart ctx opts)
+   :body
+   (fn [{:keys [upload-id bucket namespace object]}]
+     (let [buf (byte-array 0x10000)
+           etags (atom [])
+           opts {:ns namespace
+                 :bucket-name bucket
+                 :object-name object
+                 :upload-id upload-id}
+           commit (committer ctx opts etags)
+           maybe-close (fn [r]
+                         (when close?
+                           (.close in))
+                         r)
+           abort (fn []
+                   (md/chain
+                    (m/abort-multipart-upload ctx opts)
+                    maybe-close))
+           collect-or-abort (collector abort etags)
+           read #(md/future
+                   (try
+                     (.read in buf)
+                     (catch java.io.IOException ex
+                       (if (= "Pipe closed" (.getMessage ex))
+                         -1
+                         (throw ex)))))]
+       (md/loop [n (read)
+                 idx 1]
+         (md/chain
+          n
+          (fn [n]         
+            (if (neg? n)
+              ;; EOF
+              (commit)
+              (md/chain
+               (do
+                 (log/debug "Read" n "bytes, uploading them as part" idx)
+                 (m/upload-part ctx
+                                (assoc opts
+                                       :upload-part-num idx
+                                       :headers {:content-type content-type}
+                                       :part (shrink-buf buf n))))
+               (partial collect-or-abort idx)
+               (fn [c?]
+                 (when c?
+                   (md/recur (read) (inc idx)))))))))))))

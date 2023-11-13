@@ -164,7 +164,8 @@
    (-> multipart-upload-route
        (assoc :route-name :upload-part
               :method :put
-              :body-schema {:part s/Any})
+              :body-schema {:part s/Any}
+              :header-schema {(s/optional-key :content-type) s/Str})
        (assoc-in [:query-schema :uploadPartNum] part-num))
 
    (-> multipart-upload-route
@@ -190,7 +191,7 @@
   [conf]
   (letfn [(exclude? [{:keys [handler]}]
             (and (= :put (:method handler))
-                 (= :put-object (:route-name handler))))]
+                 (contains? #{:put-object :upload-part} (:route-name handler))))]
     (cm/make-context (assoc conf :exclude-body? exclude?) host routes)))
 
 (def send-request martian/response-for)
