@@ -40,16 +40,19 @@
          (aborter)
          (constantly false))))))
 
+(defn- body-or-throw-on-error [{:keys [status] :as r}]
+  (if (>= status 400)
+    (throw (ex-info "Unable to create multipart upload" r))
+    (:body r)))
+
 (defn stream->multipart
   "Returns a Manifold `stream` that will send each message received to 
    a multipart upload.  When the stream is closed, the multipart is 
    committed. In order to abort the upload, send the `cancel` token."
   [ctx opts]
   (md/chain
-   ;; Create a multipart object
-   ;; TODO Handle errors
    (create-multipart ctx opts)
-   :body
+   body-or-throw-on-error
    (fn [{:keys [upload-id bucket namespace object]}]
      (let [etags (atom [])
            opts {:ns namespace
@@ -98,10 +101,8 @@
    stream is closed when the upload aborts."
   [ctx {in :input-stream :keys [content-type close?] :as opts :or {content-type "application/binary"}}]
   (md/chain
-   ;; Create a multipart object
-   ;; TODO Handle errors
    (create-multipart ctx opts)
-   :body
+   body-or-throw-on-error
    (fn [{:keys [upload-id bucket namespace object]}]
      (let [buf (byte-array 0x10000)
            etags (atom [])
@@ -119,6 +120,11 @@
                     (m/abort-multipart-upload ctx opts)
                     maybe-close))
            collect-or-abort (collector abort etags)
+           commit-or-abort (fn []
+                             ;; It's not possible to commit an empty multipart stream
+                             (if (empty? @etags)
+                               (abort)
+                               (commit)))
            read #(md/future
                    (try
                      (.read in buf)
@@ -133,9 +139,10 @@
           (fn [n]         
             (if (neg? n)
               ;; EOF
-              (commit)
+              (commit-or-abort)
               (md/chain
                (do
+                 ;; TODO Allow grouping of small buffers into a larger part
                  (log/debug "Read" n "bytes, uploading them as part" idx)
                  (m/upload-part ctx
                                 (assoc opts

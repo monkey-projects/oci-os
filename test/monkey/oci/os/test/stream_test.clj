@@ -155,10 +155,44 @@
               :object-name "test-file"
               :input-stream in})
           s "test string"]
-    (is (md/deferred? p) "returns a deferred")
-    (is (nil? (.write os (.getBytes s))))
-    (is (nil? (.close os)))
-    (is (nil? (.close in)))
-    (is (= {:status 200
-            :body :committed}
-           (deref p 1000 :timeout))))))
+      (is (md/deferred? p) "returns a deferred")
+      (is (nil? (.write os (.getBytes s))))
+      (is (nil? (.close os)))
+      (is (nil? (.close in)))
+      (is (= {:status 200
+              :body :committed}
+             (deref p 1000 :timeout)))))
+
+  (testing "aborts empty streams"
+    (let [in (PipedInputStream.)
+          os (PipedOutputStream. in)
+          ctx (-> test-ctx
+                  (mt/respond-with
+                   {:create-multipart-upload
+                    (constantly
+                     {:status 200
+                      :body {:upload-id "test-id"
+                             :bucket "test-bucket"
+                             :object "test-obj"
+                             :namespace "test-ns"}})
+                    :upload-part
+                    (constantly
+                     {:status 200
+                      :headers {:etag "test-etag"}})
+                    :abort-multipart-upload
+                    (fn [req]
+                      {:status 200
+                       :body :aborted})}))
+          p (sut/input-stream->multipart
+             ctx
+             {:ns "test-ns"
+              :bucket-name "test-bucket"
+              :object-name "test-file"
+              :input-stream in})]
+      (is (md/deferred? p) "returns a deferred")
+      ;; Close without sending anything
+      (is (nil? (.close os)))
+      (is (nil? (.close in)))
+      (is (= {:status 200
+              :body :aborted}
+             (deref p 1000 :timeout))))))
