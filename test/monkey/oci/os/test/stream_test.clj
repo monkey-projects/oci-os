@@ -145,9 +145,13 @@
                      {:status 200
                       :headers {:etag "test-etag"}})
                     :commit-multipart-upload
-                    (fn [req]
-                      {:status 200
-                       :body :committed})}))
+                    (constantly
+                     {:status 200
+                      :body :committed})
+                    :abort-multipart-upload
+                    (constantly
+                     {:status 500
+                      :body :aborted})}))
           p (sut/input-stream->multipart
              ctx
              {:ns "test-ns"
