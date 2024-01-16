@@ -161,6 +161,7 @@
           s "test string"]
       (is (md/deferred? p) "returns a deferred")
       (is (nil? (.write os (.getBytes s))))
+      (is (nil? (.flush os)))
       (is (nil? (.close os)))
       (is (nil? (.close in)))
       (is (= {:status 200
