@@ -131,6 +131,7 @@
   (testing "creates multipart and uploads parts until stream closes"
     (let [in (PipedInputStream.)
           os (PipedOutputStream. in)
+          uploaded? (atom false)
           ctx (-> test-ctx
                   (mt/respond-with
                    {:create-multipart-upload
@@ -141,9 +142,10 @@
                              :object "test-obj"
                              :namespace "test-ns"}})
                     :upload-part
-                    (constantly
-                     {:status 200
-                      :headers {:etag "test-etag"}})
+                    (fn [_]
+                      (reset! uploaded? true)
+                      {:status 200
+                       :headers {:etag "test-etag"}})
                     :commit-multipart-upload
                     (constantly
                      {:status 200
@@ -162,8 +164,8 @@
       (is (md/deferred? p) "returns a deferred")
       (is (nil? (.write os (.getBytes s))))
       (is (nil? (.flush os)))
-      ;; Wait a little bit
-      (Thread/sleep 500)  ; Test always succeeds locally, fails remotely, so trying this
+      ;; Wait until uploaded
+      (is (not= :timeout (wait-for #(true? @uploaded?) 1000 :timeout)))
       (is (nil? (.close os)))
       (is (nil? (.close in)))
       (is (= {:status 200

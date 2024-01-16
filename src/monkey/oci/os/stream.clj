@@ -100,6 +100,7 @@
    which is the stream to read from.  If `close?` is `true`, the input
    stream is closed when the upload aborts."
   [ctx {in :input-stream :keys [content-type close?] :as opts :or {content-type "application/binary"}}]
+  ;; TODO Refactor to improve testability
   (md/chain
    (create-multipart ctx opts)
    body-or-throw-on-error
