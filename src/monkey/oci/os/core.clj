@@ -8,9 +8,14 @@
 (def make-client m/make-context)
 
 (defn- throw-on-error [{:keys [status] :as resp}]
-  (if (>= status 400)
+  (cond
+    (nil? status)
+    (throw (ex-info "No status received" resp))
+
+    (>= status 400)
     (throw (ex-info (str "Received error reponse from server, status " status) resp))
-    resp))
+
+    :else resp))
 
 (defn invoke-endpoint
   "Invokes the given endpoint using the client by sending a request to
