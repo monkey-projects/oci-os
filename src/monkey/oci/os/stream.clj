@@ -100,7 +100,8 @@
    which is the stream to read from.  If `close?` is `true`, the input
    stream is closed when the upload aborts."
   [ctx {in :input-stream
-        :keys [content-type close? buf-size] :as opts
+        :as opts
+        :keys [content-type close? buf-size progress]
         :or {content-type "application/binary"
              buf-size 0x10000}}]
   ;; TODO Refactor to improve testability
@@ -137,7 +138,8 @@
                          -1
                          (throw ex)))))]
        (md/loop [n (read)
-                 idx 1]
+                 idx 1
+                 total 0]
          (md/chain
           n
           (fn [n]         
@@ -153,7 +155,13 @@
                                        :upload-part-num idx
                                        :headers {:content-type content-type}
                                        :part (shrink-buf buf n))))
+               (fn [res]
+                 (when progress
+                   (progress {:opts (assoc opts :upload-id upload-id)
+                              :progress {:idx (dec idx)
+                                         :total-bytes (+ total n)}}))
+                 res)
                (partial collect-or-abort idx)
                (fn [c?]
                  (when c?
-                   (md/recur (read) (inc idx)))))))))))))
+                   (md/recur (read) (inc idx) (+ total n)))))))))))))

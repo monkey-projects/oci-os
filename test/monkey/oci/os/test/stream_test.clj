@@ -204,4 +204,57 @@
       (is (nil? (.close in)))
       (is (= {:status 200
               :body :aborted}
-             (deref p 1000 :timeout))))))
+             (deref p 1000 :timeout)))))
+
+  (testing "invokes progress listener after each part upload"
+    (let [in (PipedInputStream.)
+          os (PipedOutputStream. in)
+          inv (atom [])
+          ctx (-> test-ctx
+                  (mt/respond-with
+                   {:create-multipart-upload
+                    (constantly
+                     {:status 200
+                      :body {:upload-id "test-id"
+                             :bucket "test-bucket"
+                             :object "test-obj"
+                             :namespace "test-ns"}})
+                    :upload-part
+                    (fn [_]
+                      {:status 200
+                       :headers {:etag "test-etag"}})
+                    :commit-multipart-upload
+                    (constantly
+                     {:status 200
+                      :body :committed})
+                    :abort-multipart-upload
+                    (constantly
+                     {:status 500
+                      :body :aborted})}))
+          p (sut/input-stream->multipart
+             ctx
+             {:ns "test-ns"
+              :bucket-name "test-bucket"
+              :object-name "test-file"
+              :input-stream in
+              :progress (partial swap! inv conj)})
+          s "test string"]
+      (is (md/deferred? p) "returns a deferred")
+      (is (nil? (.write os (.getBytes s))))
+      (is (nil? (.flush os)))
+      ;; Wait until uploaded
+      (is (not= :timeout (wait-for #(not-empty @inv) 1000 :timeout)))
+      (is (nil? (.close os)))
+      (is (nil? (.close in)))
+      (is (= {:status 200
+              :body :committed}
+             (deref p 1000 :timeout)))
+      (is (= {:opts
+              {:upload-id "test-id"
+               :bucket-name "test-bucket"
+               :object-name "test-obj"
+               :ns "test-ns"}
+              :progress
+              {:total-bytes (count s)
+               :idx 0}}
+             (first @inv))))))

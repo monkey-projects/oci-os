@@ -121,7 +121,24 @@ bucket.  Be sure to close the stream yourself.  This is most useful for large fi
 ;; This will return the result of the commit operation, after closing the file.
 ```
 
-You can also use a `finally` handler, to ensure the file is close even in the case of errors.
+You can also use a `finally` handler, to ensure the file is closed even in the case of errors.
+You can also pass in `:close? true` in the options to do this.  The options map accepts the
+following values:
+
+|Key|Required?|Default value|Description|
+|---|---|---|---|
+|`:ns`|Yes||The namespace where the bucket resides|
+|`:bucket-nane`|Yes||The name of the bucket to upload to|
+|`:object-name`|Yes||The name of the destination object|
+|`:input-stream`|Yes||Input stream to read from|
+|`:content-type`|No|`application/binary`|The content type to add as metadata|
+|`:close?`|No|`false`|Should the stream be closed after upload?|
+|`:buf-size`|No|`0x10000`|Max size of each part that is being uploaded|
+|`:progress`|No|`nil`|A function that will be invoked after each part upload|
+
+A `progress` fn can be passed if you want to be notified of upload progress.  It receives
+a structure with the input arguments as well as the upload id (as assigned by OCI) and
+the total number of bytes already uploaded up to that point.
 
 ### Low-level Calls
 
