@@ -80,7 +80,17 @@
 (deftest get-object
   (testing "invokes `:get-object` request"
     (let [ctx (mt/respond-with-constant test-ctx {:get-object {:body "test"}})]
-      (is (map? @(sut/get-object ctx {:ns "test-ns" :bucket-name "test-bucket" :object-name "test-obj"}))))))
+      (is (map? @(sut/get-object ctx {:ns "test-ns" :bucket-name "test-bucket" :object-name "test-obj"})))))
+
+  (testing "sets idle timeout higher than the default 60s (for large objects)"
+    (is (= 200 (-> test-ctx
+                   (mt/respond-with {:get-object (fn [{:keys [idle-timeout]}]
+                                                   {:status (if (and idle-timeout (> idle-timeout 60000))
+                                                              200
+                                                              500)})})
+                   (sut/get-object {:ns "test-ns" :bucket-name "test-bucket" :object-name "large-obj"})
+                   (deref)
+                   :status)))))
 
 (deftest delete-object
   (testing "invokes `:delete-object` request"

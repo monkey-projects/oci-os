@@ -99,13 +99,16 @@
    create a multipart (ns, bucket-name and object-name), and also `input-stream`,
    which is the stream to read from.  If `close?` is `true`, the input
    stream is closed when the upload aborts."
-  [ctx {in :input-stream :keys [content-type close?] :as opts :or {content-type "application/binary"}}]
+  [ctx {in :input-stream
+        :keys [content-type close? buf-size] :as opts
+        :or {content-type "application/binary"
+             buf-size 0x10000}}]
   ;; TODO Refactor to improve testability
   (md/chain
    (create-multipart ctx opts)
    body-or-throw-on-error
    (fn [{:keys [upload-id bucket namespace object]}]
-     (let [buf (byte-array 0x10000)
+     (let [buf (byte-array buf-size)
            etags (atom [])
            opts {:ns namespace
                  :bucket-name bucket

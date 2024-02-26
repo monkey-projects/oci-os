@@ -81,6 +81,11 @@
    :path-schema object-path-schema
    :query-schema {:uploadId s/Str}})
 
+(def override-idle-timeout
+  {:name ::override-idle-timeout
+   ;; idle timeout: 30 minutes
+   :enter #(assoc-in % [:request :idle-timeout] (* 30 60 1000))})
+
 (def routes
   [{:route-name :get-namespace
     :method :get
@@ -118,7 +123,8 @@
    {:route-name :get-object
     :method :get
     :path-parts object-path
-    :path-schema object-path-schema}
+    :path-schema object-path-schema
+    :interceptors [override-idle-timeout]}
    
    {:route-name :delete-object
     :method :delete

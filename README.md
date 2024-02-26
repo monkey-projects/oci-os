@@ -60,7 +60,7 @@ Creating or updating files is done with the `put-object` function.  The options 
 contain the `:ns` (namespace), `:bucket-name`, `:object-name` and `:contents` values.  The
 contents is a string with the file contents.  Request signature require calculating an SHA256
 hash for the body, so streaming is not supported.  For larger files, you should use multipart
-requests (coming later).
+requests (see below).
 
 The upload and download requests don't produce JSON so the calls return the underlying
 HttpKit response, which contains also a `:body` value.
@@ -85,6 +85,44 @@ specifying the raw header in the request options:
 This will explicitly pass in the `Content-Type` header to the backend, which will also
 be returned when you download the file.
 
+### Multipart Uploads
+
+Often you will want to upload very large files, or maybe even streams of which you don't know
+beforehand how large they are (e.g. logfiles).  For this you can use
+[multipart uploads](https://docs.oracle.com/en-us/iaas/Content/Object/Tasks/usingmultipartuploads.htm#Using_Multipart_Uploads).  With these you can upload a large object in chunks.  This library provides a
+wrapper around this, found in the [monkey.oci.os.stream](src/monkey/oci/os/stream.clj) namespace.
+
+There are two main functions here: `stream->multipart` and `input-stream->multipart`.  The first
+takes a [Manifold stream](https://cljdoc.org/d/manifold/manifold/0.4.2/doc/streams) and uploads
+each incoming message as a new multipart object.  This is useful for real-time streaming uploads.
+
+The second takes a regular Java `InputStream` and uploads it until EOF has been reached, or
+the stream is closed.  After that, it commits the multipart and the object is created in the
+bucket.  Be sure to close the stream yourself.  This is most useful for large files.  An example:
+
+```clojure
+(require '[monkey.oci.os.stream :as oss])
+(require '[manifold.deferred :as md])
+(require '[clojure.java.io :as io])
+
+;; Open the stream
+(def is (io/input-stream "/path/to/very-large-file"))
+;; Upload it
+(md/chain
+ (oss/input-stream->multipart ctx
+  {:ns "my-bucket-ns"
+   :object-name "/destination/path"
+   :bucket-name "my-bucket"
+   :input-stream "is"})
+ (fn [r]
+   ;; Close when EOF reached
+   (.close is)
+   r))
+;; This will return the result of the commit operation, after closing the file.
+```
+
+You can also use a `finally` handler, to ensure the file is close even in the case of errors.
+
 ### Low-level Calls
 
 Should you need access to the full response, for example to read certain headers like `ETag`,
@@ -105,11 +143,11 @@ bad form if you're actually expecting it to happen, right?)
 
 ## TODO
 
- - Take care of pagination.
- - Provide functionality for handling multipart uploads for large files.
  - Add something that automagically generates the Martian routes from the OCI provided Java libs.
    (Or find the OpenAPI specs.)
 
 ## Copyright
 
-Copyright (c) 2023 by Monkey Projects BV.
+Copyright (c) 2023-2024 by Monkey Projects BV.
+
+[MIT License](LICENSE)
