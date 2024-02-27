@@ -4,7 +4,7 @@
   <packaging>jar</packaging>
   <groupId>com.monkeyprojects</groupId>
   <artifactId>oci-os</artifactId>
-  <version>0.2.0-SNAPSHOT</version>
+  <version>0.2.1-SNAPSHOT</version>
   <name>oci-os</name>
   <build>
     <sourceDirectory>src</sourceDirectory>

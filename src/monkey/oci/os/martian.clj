@@ -217,7 +217,8 @@
                            :response)))]
               (-> request
                   ;; Invoke async
-                  (assoc :async? true)
+                  (assoc :async? true
+                         :throw-exceptions false)
                   (http/request (fn [resp]
                                   (md/success! d resp))
                                 (fn [err]
