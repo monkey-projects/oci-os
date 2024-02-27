@@ -1,13 +1,12 @@
 (ns monkey.oci.os.test.martian-test
   (:require [clojure.test :refer :all]
+            [clj-http.fake :as f]
             [clojure.tools.logging :as log]
             [clojure.data.json :as json]
             [martian.test :as mt]
             [monkey.oci.common.utils :refer [generate-key]]
             [monkey.oci.os.martian :as sut]
-            [monkey.oci.sign :as sign]
-            [org.httpkit.fake :as f]
-            [org.httpkit.client :as http]))
+            [monkey.oci.sign :as sign]))
 
 (def test-config {:user-ocid "test-user"
                   :tenancy-ocid "test-tenancy"
@@ -19,18 +18,18 @@
 
 (deftest get-namespace
   (testing "sends GET request to backend"
-    (f/with-fake-http
-      ["https://objectstorage.test-region.oraclecloud.com/n" {:body "\"test-ns\""
-                                                              :headers {:content-type "application/json"}}]
-      
+    (f/with-fake-routes
+        {"https://objectstorage.test-region.oraclecloud.com/n" (constantly
+                                                                {:body "\"test-ns\""
+                                                                 :headers {:content-type "application/json"}})}
       (is (= "test-ns" (:body @(sut/get-namespace test-ctx)))))))
 
 (deftest list-buckets
   (testing "sends GET request to backend"
-    (f/with-fake-http
-      ["https://objectstorage.test-region.oraclecloud.com/n/test-ns/b"
-       {:body "{\"name\":\"test bucket\"}"
-        :headers {:content-type "application/json"}}]
+    (f/with-fake-routes
+        {"https://objectstorage.test-region.oraclecloud.com/n/test-ns/b?compartment-id=test-cid"
+         (constantly {:body "{\"name\":\"test bucket\"}"
+                      :headers {:content-type "application/json"}})}
       
       (is (= {:name "test bucket"} (-> (sut/list-buckets test-ctx {:ns "test-ns"
                                                                    :compartment-id "test-cid"})
@@ -59,10 +58,11 @@
 
   (testing "doesn't include body in signature headers"
     (let [ctx (mt/respond-with test-ctx {:put-object (fn [req]
-                                                       (get-in req [:headers "authorization"]))})]
+                                                       (get-in req [:headers "authorization"]))})
+          url "https://objectstorage.test-region.oraclecloud.com/n/test-ns/b/test-bucket/o/test.txt"]
       (is (= (get (sign/sign test-config
                              (-> (sign/sign-headers
-                                  {:url "https://objectstorage.test-region.oraclecloud.com/n/test-ns/b/test-bucket/o/test.txt"
+                                  {:url url
                                    :method :put})
                                  (select-keys ["date" "(request-target)" "host"])))
                   "authorization")
@@ -82,10 +82,10 @@
     (let [ctx (mt/respond-with-constant test-ctx {:get-object {:body "test"}})]
       (is (map? @(sut/get-object ctx {:ns "test-ns" :bucket-name "test-bucket" :object-name "test-obj"})))))
 
-  (testing "sets idle timeout higher than the default 60s (for large objects)"
+  (testing "sets streaming"
     (is (= 200 (-> test-ctx
-                   (mt/respond-with {:get-object (fn [{:keys [idle-timeout]}]
-                                                   {:status (if (and idle-timeout (> idle-timeout 60000))
+                   (mt/respond-with {:get-object (fn [{:keys [as]}]
+                                                   {:status (if (= :stream as)
                                                               200
                                                               500)})})
                    (sut/get-object {:ns "test-ns" :bucket-name "test-bucket" :object-name "large-obj"})
@@ -110,14 +110,15 @@
                                                   :new-name "new.txt"}})))))
 
   (testing "sends authorization header"
-    (f/with-fake-http [(constantly true) (fn [f req c]
-                                           (c {:body (:headers req)}))]
+    (f/with-fake-routes {#".*" (fn [req]
+                                 {:body (json/write-str (:headers req))})}
       (let [resp (-> test-ctx
                      (sut/rename-object {:ns "test-ns" :bucket-name "test-bucket"
                                          :rename {:source-name "old.txt"
                                                   :new-name "new.txt"}})
                      (deref)
-                     :body)]
+                     :body
+                     (json/read-str))]
         (is (string? (get resp "authorization")))
         (is (string? (get resp "content-length")))
         (is (= "application/json" (get resp "content-type")))))))

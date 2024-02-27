@@ -1,11 +1,20 @@
 (ns monkey.oci.os.martian
   "Low level functionality that uses Martian and Httpkit to send HTTP requests."
-  (:require [martian.core :as martian]
+  (:require [camel-snake-kebab.core :as csk]
+            [clj-http.client :as http]
+            [clojure.tools.logging :as log]
+            [manifold.deferred :as md]
+            [martian
+             [core :as martian]
+             [encoders :as me]
+             [interceptors :as mi]]
+            [medley.core :as mc]
             [monkey.oci.common
              [martian :as cm]
              [pagination :as p]
              [utils :as u]]
-            [schema.core :as s]))
+            [schema.core :as s]
+            [tripod.context :as tc]))
 
 (set! *warn-on-reflection* true)
 
@@ -81,10 +90,22 @@
    :path-schema object-path-schema
    :query-schema {:uploadId s/Str}})
 
-(def override-idle-timeout
-  {:name ::override-idle-timeout
-   ;; idle timeout: 30 minutes
-   :enter #(assoc-in % [:request :idle-timeout] (* 30 60 1000))})
+(def override-req-opts
+  "Overrides request options for `get-object` calls."
+  {:name ::override-req-opts
+   :enter #(update % :request assoc :as :stream)})
+
+#_(def enforce-text
+  "Due to an error in the get-namespace endpoint, it says it returns `application/json` but
+   the body is actually plain text."
+  {:name ::enforce-text
+   :enter (fn [{:keys [request] :as ctx}]
+            (log/debug "Request:" request)
+            (log/debug "Requesting as:" (:as request))
+            (assoc-in ctx [:headers "Accept"] "text/plain"))
+   :leave (fn [{:keys [response] :as ctx}]
+            (log/debug "Content-type:" (get-in response [:headers :content-type]))
+            ctx)})
 
 (def routes
   [{:route-name :get-namespace
@@ -124,7 +145,8 @@
     :method :get
     :path-parts object-path
     :path-schema object-path-schema
-    :interceptors [override-idle-timeout]}
+    :interceptors [override-req-opts]
+    :produces ["application/octet-stream"]}
    
    {:route-name :delete-object
     :method :delete
@@ -191,6 +213,51 @@
 
 (def host (comp (partial format "https://objectstorage.%s.oraclecloud.com") :region))
 
+(def perform-request
+  ;; Use httpkit as interceptor name, because martian-test can handle async this way.
+  {:name :martian.httpkit/perform-request
+   :leave (fn [{:keys [request] :as ctx}]
+            (let [d (md/deferred)
+                  ;; Process the deferred response by applying the interceptors
+                  c (md/chain
+                     d
+                     (fn [r]
+                       (-> r
+                           (update :headers (partial mc/map-keys csk/->kebab-case-keyword))
+                           (as-> x (assoc ctx :response x))
+                           (tc/execute)
+                           :response)))]
+              (-> request
+                  ;; Invoke async
+                  (assoc :async? true)
+                  (http/request (fn [resp]
+                                  (md/success! d resp))
+                                (fn [err]
+                                  (md/error! d err))))
+              ;; Return the deferred as a response, don't apply interceptors here
+              (-> ctx
+                  (mi/remove-stack)
+                  (assoc :response c))))})
+
+(def fix-get-namespace-content-type
+  "When invoking `get-namespace`, it returns `Content-Type: application/json` but the body
+   is actually plain text.  This interceptor overwrites the response content type to fix this."
+  {:name ::fix-content-type
+   :leave (fn [ctx]
+            (cond-> ctx
+              (= :get-namespace (get-in ctx [:handler :route-name]))
+              (assoc-in [:response :headers "content-type"] "text/plain")))})
+
+(def custom-encoders
+  {"application/octet-stream" {:as :stream
+                               :encode identity
+                               :decode identity}})
+
+(def coerce-response
+  (-> (me/default-encoders csk/->kebab-case-keyword)
+      (merge custom-encoders)
+      (mi/coerce-response)))
+
 (defn make-context
   "Creates Martian context for the given configuration.  This context
    should be passed to subsequent requests."
@@ -198,7 +265,15 @@
   (letfn [(exclude? [{:keys [handler]}]
             (and (= :put (:method handler))
                  (contains? #{:put-object :upload-part} (:route-name handler))))]
-    (cm/make-context (assoc conf :exclude-body? exclude?) host routes)))
+    (martian/bootstrap
+     (host conf)
+     routes
+     ;; Replace httpkit with clj-http because httpkit is unable to stream large responses without
+     ;; completely buffering them.  This doesn't work well with get-object.
+     {:interceptors (-> (cm/default-interceptors (assoc conf :exclude-body? exclude?))
+                        (mi/inject perform-request :replace :martian.httpkit/perform-request)
+                        (mi/inject fix-get-namespace-content-type :before :martian.httpkit/perform-request)
+                        (mi/inject coerce-response :replace ::mi/coerce-response))})))
 
 (def send-request martian/response-for)
 

@@ -1,6 +1,8 @@
 (ns user
-  (:require [clojure.tools.logging :as log]
+  (:require [clojure.java.io :as io]
+            [clojure.tools.logging :as log]
             [config.core :refer [env]]
+            [manifold.deferred :as md]
             [monkey.oci.os
              [core :as c]
              [martian :as m]]
@@ -24,6 +26,11 @@
 (defn get-object [obj]
   (log/info "Retrieving object" obj)
   @(c/get-object ctx {:ns @bucket-ns :bucket-name bucket-name :object-name obj}))
+
+(defn download-object [obj dest]
+  (md/chain
+   (c/get-object ctx {:ns @bucket-ns :bucket-name bucket-name :object-name obj})
+   #(io/copy % dest :buffer-size 0x100000)))
 
 (defn put-object [obj contents]
   (log/info "Putting object" obj)
