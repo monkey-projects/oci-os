@@ -6,10 +6,10 @@
     </encoder>
   </appender>
   
+  <logger name="user" level="DEBUG"/>
   <logger name="monkey.oci" level="DEBUG"/>
   <logger name="monkey.oci.sign" level="INFO"/>
   <logger name="com.oracle" level="TRACE"/>
-  <logger name="org.httpkit" level="DEBUG"/>
   
   <root level="WARN">
     <appender-ref ref="CONSOLE" />
