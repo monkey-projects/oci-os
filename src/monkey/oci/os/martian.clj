@@ -95,18 +95,6 @@
   {:name ::override-req-opts
    :enter #(update % :request assoc :as :stream)})
 
-#_(def enforce-text
-  "Due to an error in the get-namespace endpoint, it says it returns `application/json` but
-   the body is actually plain text."
-  {:name ::enforce-text
-   :enter (fn [{:keys [request] :as ctx}]
-            (log/debug "Request:" request)
-            (log/debug "Requesting as:" (:as request))
-            (assoc-in ctx [:headers "Accept"] "text/plain"))
-   :leave (fn [{:keys [response] :as ctx}]
-            (log/debug "Content-type:" (get-in response [:headers :content-type]))
-            ctx)})
-
 (def routes
   [{:route-name :get-namespace
     :method :get
