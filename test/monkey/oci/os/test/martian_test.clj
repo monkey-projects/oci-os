@@ -120,7 +120,7 @@
                      :body
                      (json/read-str))]
         (is (string? (get resp "authorization")))
-        (is (string? (get resp "content-length")))
+        (is (nil? (get resp "content-length")) "content-length header must be removed")
         (is (= "application/json" (get resp "content-type")))))))
 
 (deftest copy-object

@@ -215,10 +215,15 @@
                            (as-> x (assoc ctx :response x))
                            (tc/execute)
                            :response)))]
+              (log/trace "Sending HTTP request:" request)
               (-> request
                   ;; Invoke async
                   (assoc :async? true
                          :throw-exceptions false)
+                  ;; Explicitly remove content length, because the apache http client that
+                  ;; clj-http uses adds it automatically.  If we don't do this, it throws an
+                  ;; exception that "content length is already present".
+                  (update :headers dissoc "content-length")
                   (http/request (fn [resp]
                                   (md/success! d resp))
                                 (fn [err]
