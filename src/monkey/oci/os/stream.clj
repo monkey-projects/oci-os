@@ -150,6 +150,7 @@
                (do
                  ;; TODO Allow grouping of small buffers into a larger part
                  (log/debug "Read" n "bytes, uploading them as part" idx)
+                 (log/trace "Part contents:" (String. buf 0 n))
                  (m/upload-part ctx
                                 (assoc opts
                                        :upload-part-num idx

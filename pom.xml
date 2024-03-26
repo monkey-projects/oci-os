@@ -4,7 +4,7 @@
   <packaging>jar</packaging>
   <groupId>com.monkeyprojects</groupId>
   <artifactId>oci-os</artifactId>
-  <version>0.2.1-SNAPSHOT</version>
+  <version>0.2.2-SNAPSHOT</version>
   <name>oci-os</name>
   <build>
     <sourceDirectory>src</sourceDirectory>
@@ -24,4 +24,41 @@
   <scm>
     <url>https://github.com/monkey-projects/oci-os</url>
   </scm>
+  <dependencies>
+    <dependency>
+      <groupId>org.clojure</groupId>
+      <artifactId>clojure</artifactId>
+      <version>1.11.1</version>
+    </dependency>
+    <dependency>
+      <groupId>manifold</groupId>
+      <artifactId>manifold</artifactId>
+      <version>0.4.2</version>
+    </dependency>
+    <dependency>
+      <groupId>clj-http</groupId>
+      <artifactId>clj-http</artifactId>
+      <version>3.12.3</version>
+    </dependency>
+    <dependency>
+      <groupId>com.monkeyprojects</groupId>
+      <artifactId>oci-common</artifactId>
+      <version>0.1.2</version>
+    </dependency>
+    <dependency>
+      <groupId>buddy</groupId>
+      <artifactId>buddy-sign</artifactId>
+      <version>3.5.346</version>
+    </dependency>
+    <dependency>
+      <groupId>medley</groupId>
+      <artifactId>medley</artifactId>
+      <version>1.4.0</version>
+    </dependency>
+    <dependency>
+      <groupId>http-kit</groupId>
+      <artifactId>http-kit</artifactId>
+      <version>2.6.0</version>
+    </dependency>
+  </dependencies>
 </project>
