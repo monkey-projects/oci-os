@@ -1,5 +1,6 @@
 (ns user
   (:require [clojure.java.io :as io]
+            [clj-commons.byte-streams :as bs]
             [clojure.tools.logging :as log]
             [config.core :refer [env]]
             [manifold.deferred :as md]
@@ -17,7 +18,26 @@
 (def ctx (c/make-client conf))
 
 (def bucket-ns (delay @(c/get-namespace ctx)))
-(def bucket-name "test-dev")
+;;(def bucket-name "test-dev")
+(def bucket-name "monkeyci-workspaces")
+
+(defn used-mem []
+  (let [rt (java.lang.Runtime/getRuntime)]
+    (- (.totalMemory rt) (.freeMemory rt))))
+
+(defn with-mem* [f]
+  (java.lang.System/gc)
+  (let [before (used-mem)]
+    (try
+      (f)
+      (finally
+        (let [diff (- (used-mem) before)]
+          (log/infof "Memory difference: %d bytes (%.2f MB)" diff (float (/ diff 1048576))))))))
+
+(defmacro with-mem [& body]
+  `(with-mem*
+     (fn []
+       ~@body)))
 
 (defn list-objects [& [opts]]
   (log/info "Listing objects in" bucket-name)
@@ -28,9 +48,10 @@
   @(c/get-object ctx {:ns @bucket-ns :bucket-name bucket-name :object-name obj}))
 
 (defn download-object [obj dest]
-  (md/chain
-   (c/get-object ctx {:ns @bucket-ns :bucket-name bucket-name :object-name obj})
-   #(io/copy % dest :buffer-size 0x100000)))
+  @(md/chain
+    (c/get-object ctx {:ns @bucket-ns :bucket-name bucket-name :object-name obj})
+    #_#(io/copy % dest :buffer-size 0x100000)
+    #(bs/transfer % dest {:append? false})))
 
 (defn put-object [obj contents]
   (log/info "Putting object" obj)

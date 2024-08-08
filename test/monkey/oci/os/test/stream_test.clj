@@ -6,6 +6,7 @@
             [martian
              [core :as martian]
              [test :as mt]]
+            [monkey.martian.aleph :as mma]
             [monkey.oci.common.utils :as u]
             [monkey.oci.os
              [martian :as m]
@@ -17,7 +18,8 @@
                    :private-key (u/generate-key)
                    :key-fingerprint "test-fingerprint"
                    :region "test-region"}
-                  (m/make-context)))
+                  (m/make-context)
+                  (mma/as-test-context)))
 
 (defn- wait-for [f timeout timeout-val]
   (let [now (fn [] (System/currentTimeMillis))

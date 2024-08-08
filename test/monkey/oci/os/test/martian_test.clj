@@ -1,9 +1,11 @@
 (ns monkey.oci.os.test.martian-test
   (:require [clojure.test :refer :all]
-            [clj-http.fake :as f]
+            [aleph.http :as http]
             [clojure.tools.logging :as log]
             [clojure.data.json :as json]
+            [manifold.deferred :as md]
             [martian.test :as mt]
+            [monkey.martian.aleph :as aleph]
             [monkey.oci.common.utils :refer [generate-key]]
             [monkey.oci.os.martian :as sut]
             [monkey.oci.sign :as sign]))
@@ -14,23 +16,23 @@
                   :key-fingerprint "test-fingerprint"
                   :region "test-region"})
 
-(def test-ctx (sut/make-context test-config))
+(def test-ctx (-> (sut/make-context test-config)
+                  (aleph/as-test-context)))
 
 (deftest get-namespace
   (testing "sends GET request to backend"
-    (f/with-fake-routes
-        {"https://objectstorage.test-region.oraclecloud.com/n" (constantly
-                                                                {:body "\"test-ns\""
-                                                                 :headers {:content-type "application/json"}})}
+    (with-redefs [http/request (constantly
+                                (md/success-deferred
+                                 {:body "\"test-ns\""
+                                  :headers {:content-type "application/json"}}))]
       (is (= "test-ns" (:body @(sut/get-namespace test-ctx)))))))
 
 (deftest list-buckets
   (testing "sends GET request to backend"
-    (f/with-fake-routes
-        {"https://objectstorage.test-region.oraclecloud.com/n/test-ns/b?compartment-id=test-cid"
-         (constantly {:body "{\"name\":\"test bucket\"}"
-                      :headers {:content-type "application/json"}})}
-      
+    (with-redefs [http/request (constantly
+                                (md/success-deferred
+                                 {:body "{\"name\":\"test bucket\"}"
+                                  :headers {:content-type "application/json"}}))]
       (is (= {:name "test bucket"} (-> (sut/list-buckets test-ctx {:ns "test-ns"
                                                                    :compartment-id "test-cid"})
                                        (deref)
@@ -110,8 +112,9 @@
                                                   :new-name "new.txt"}})))))
 
   (testing "sends authorization header"
-    (f/with-fake-routes {#".*" (fn [req]
-                                 {:body (json/write-str (:headers req))})}
+    (with-redefs [http/request (fn [req]
+                                 (md/success-deferred
+                                  {:body (json/write-str (:headers req))}))]
       (let [resp (-> test-ctx
                      (sut/rename-object {:ns "test-ns" :bucket-name "test-bucket"
                                          :rename {:source-name "old.txt"
@@ -120,7 +123,6 @@
                      :body
                      (json/read-str))]
         (is (string? (get resp "authorization")))
-        (is (nil? (get resp "content-length")) "content-length header must be removed")
         (is (= "application/json" (get resp "content-type")))))))
 
 (deftest copy-object

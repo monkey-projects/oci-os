@@ -1,7 +1,7 @@
 (ns monkey.oci.os.martian
   "Low level functionality that uses Martian and Httpkit to send HTTP requests."
   (:require [camel-snake-kebab.core :as csk]
-            [clj-http.client :as http]
+            [cheshire.core :as json]
             [clojure.tools.logging :as log]
             [manifold.deferred :as md]
             [martian
@@ -9,6 +9,7 @@
              [encoders :as me]
              [interceptors :as mi]]
             [medley.core :as mc]
+            [monkey.martian.aleph :as aleph]
             [monkey.oci.common
              [martian :as cm]
              [pagination :as p]
@@ -201,38 +202,6 @@
 
 (def host (comp (partial format "https://objectstorage.%s.oraclecloud.com") :region))
 
-(def perform-request
-  ;; Use httpkit as interceptor name, because martian-test can handle async this way.
-  {:name :martian.httpkit/perform-request
-   :leave (fn [{:keys [request] :as ctx}]
-            (let [d (md/deferred)
-                  ;; Process the deferred response by applying the interceptors
-                  c (md/chain
-                     d
-                     (fn [r]
-                       (-> r
-                           (update :headers (partial mc/map-keys csk/->kebab-case-keyword))
-                           (as-> x (assoc ctx :response x))
-                           (tc/execute)
-                           :response)))]
-              (log/trace "Sending HTTP request:" request)
-              (-> request
-                  ;; Invoke async
-                  (assoc :async? true
-                         :throw-exceptions false)
-                  ;; Explicitly remove content length, because the apache http client that
-                  ;; clj-http uses adds it automatically.  If we don't do this, it throws an
-                  ;; exception that "content length is already present".
-                  (update :headers dissoc "content-length")
-                  (http/request (fn [resp]
-                                  (md/success! d resp))
-                                (fn [err]
-                                  (md/error! d err))))
-              ;; Return the deferred as a response, don't apply interceptors here
-              (-> ctx
-                  (mi/remove-stack)
-                  (assoc :response c))))})
-
 (def fix-get-namespace-content-type
   "When invoking `get-namespace`, it returns `Content-Type: application/json` but the body
    is actually plain text.  This interceptor overwrites the response content type to fix this."
@@ -248,7 +217,7 @@
                                :decode identity}})
 
 (def coerce-response
-  (-> (me/default-encoders csk/->kebab-case-keyword)
+  (-> (aleph/make-encoders csk/->kebab-case-keyword)
       (merge custom-encoders)
       (mi/coerce-response)))
 
@@ -262,11 +231,11 @@
     (martian/bootstrap
      (host conf)
      routes
-     ;; Replace httpkit with clj-http because httpkit is unable to stream large responses without
+     ;; Replace httpkit with aleph because httpkit is unable to stream large responses without
      ;; completely buffering them.  This doesn't work well with get-object.
      {:interceptors (-> (cm/default-interceptors (assoc conf :exclude-body? exclude?))
-                        (mi/inject perform-request :replace :martian.httpkit/perform-request)
-                        (mi/inject fix-get-namespace-content-type :before :martian.httpkit/perform-request)
+                        (mi/inject aleph/perform-request :replace :martian.httpkit/perform-request)
+                        (mi/inject fix-get-namespace-content-type :before :martian.aleph/perform-request)
                         (mi/inject coerce-response :replace ::mi/coerce-response))})))
 
 (def send-request martian/response-for)
