@@ -60,7 +60,7 @@
 
   (testing "doesn't include body in signature headers"
     (let [ctx (mt/respond-with test-ctx {:put-object (fn [req]
-                                                       (get-in req [:headers "authorization"]))})
+                                                       {:body (get-in req [:headers "authorization"])})})
           url "https://objectstorage.test-region.oraclecloud.com/n/test-ns/b/test-bucket/o/test.txt"]
       (is (= (get (sign/sign test-config
                              (-> (sign/sign-headers
@@ -68,16 +68,20 @@
                                    :method :put})
                                  (select-keys ["date" "(request-target)" "host"])))
                   "authorization")
-             @(sut/put-object ctx {:ns "test-ns" :bucket-name "test-bucket" :object-name "test.txt"
-                                   :contents "test"})))))
+             (-> (sut/put-object ctx {:ns "test-ns" :bucket-name "test-bucket" :object-name "test.txt"
+                                      :contents "test"})
+                 deref
+                 :body)))))
 
   (testing "passes body as-is"
     (let [ctx (mt/respond-with test-ctx {:put-object (fn [req]
-                                                       (:body req))})]
-      (is (= "test" @(sut/put-object ctx {:ns "test-ns"
-                                          :bucket-name "test-bucket"
-                                          :object-name "test.txt"
-                                          :contents "test"}))))))
+                                                       (select-keys req [:body]))})]
+      (is (= "test" (-> (sut/put-object ctx {:ns "test-ns"
+                                             :bucket-name "test-bucket"
+                                             :object-name "test.txt"
+                                             :contents "test"})
+                        deref
+                        :body))))))
 
 (deftest get-object
   (testing "invokes `:get-object` request"

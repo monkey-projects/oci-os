@@ -5,6 +5,7 @@
             [manifold
              [deferred :as md]
              [stream :as ms]]
+            [medley.core :as mc]
             [monkey.oci.os.martian :as m]))
 
 (defn- create-multipart [ctx opts]
@@ -30,8 +31,9 @@
     (if (= 200 status)
       ;; Collect the etags and part numbers, we'll need them when committing
       (do
-        (swap! etags conj (-> headers
-                              (select-keys [:etag])
+        (swap! etags conj (-> #_{:etag (or (get headers :etag)
+                                         (get headers "etag"))}
+                              (select-keys headers [:etag])
                               (assoc :part-num idx)))
         true)
       (do

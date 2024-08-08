@@ -221,6 +221,11 @@
       (merge custom-encoders)
       (mi/coerce-response)))
 
+(def keywordize-headers
+  {:name ::keywordize-headers
+   :leave (fn [ctx]
+            (mc/update-existing-in ctx [:response :headers] (partial mc/map-keys csk/->kebab-case-keyword)))})
+
 (defn make-context
   "Creates Martian context for the given configuration.  This context
    should be passed to subsequent requests."
@@ -236,7 +241,8 @@
      {:interceptors (-> (cm/default-interceptors (assoc conf :exclude-body? exclude?))
                         (mi/inject aleph/perform-request :replace :martian.httpkit/perform-request)
                         (mi/inject fix-get-namespace-content-type :before :martian.aleph/perform-request)
-                        (mi/inject coerce-response :replace ::mi/coerce-response))})))
+                        (mi/inject coerce-response :replace ::mi/coerce-response)
+                        (mi/inject keywordize-headers :before ::mi/coerce-response))})))
 
 (def send-request martian/response-for)
 

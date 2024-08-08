@@ -6,7 +6,8 @@
             [manifold.deferred :as md]
             [monkey.oci.os
              [core :as c]
-             [martian :as m]]
+             [martian :as m]
+             [stream :as s]]
             [monkey.oci.common.utils :as u]))
 
 (def conf (-> env
@@ -18,8 +19,8 @@
 (def ctx (c/make-client conf))
 
 (def bucket-ns (delay @(c/get-namespace ctx)))
-;;(def bucket-name "test-dev")
-(def bucket-name "monkeyci-workspaces")
+(def bucket-name "test-dev")
+;;(def bucket-name "monkeyci-workspaces")
 
 (defn used-mem []
   (let [rt (java.lang.Runtime/getRuntime)]
@@ -58,6 +59,19 @@
   @(c/put-object ctx {:ns @bucket-ns :bucket-name bucket-name :object-name obj
                       :contents contents
                       :martian.core/request {:headers {"Content-Type" "text/plain"}}}))
+
+(defn put-multipart
+  "Uploads large file using multipart"
+  [obj path]
+  (letfn [(show-progress [{:keys [progress]}]
+            (log/info "Bytes uploaded:" (:total-bytes progress)))]
+    (log/info "Uploading multipart:" path "to" obj)
+    @(s/input-stream->multipart ctx {:ns @bucket-ns
+                                     :bucket-name bucket-name
+                                     :object-name obj
+                                     :input-stream (io/input-stream (io/file path))
+                                     :close? true
+                                     :progress show-progress})))
 
 (defn delete-object [obj]
   (log/info "Deleting object" obj)
