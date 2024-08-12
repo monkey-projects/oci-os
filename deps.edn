@@ -1,7 +1,7 @@
 {:deps {com.monkeyprojects/oci-common {:mvn/version "0.1.2"}
         aleph/aleph {:mvn/version "0.8.1"} ; Use aleph http, it's better for streaming
         buddy/buddy-sign {:mvn/version "3.6.1-359"}
-        com.monkeyprojects/martian-aleph {:mvn/version "0.1.0-SNAPSHOT"}
+        com.monkeyprojects/martian-aleph {:mvn/version "0.1.1-SNAPSHOT"}
         manifold/manifold {:mvn/version "0.4.3"}
         medley/medley {:mvn/version "1.4.0"}}
  

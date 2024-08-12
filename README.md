@@ -16,14 +16,13 @@ that is just a thin layer on top of the REST calls.  On top of that there is
 a layer that provides convenience functions for often-used scenarios.
 
 Under the hood it uses [Martian](https://github.com/oliyh/martian) to send HTTP
-requests to the OCI API.  We're using the [Httpkit](https://github.com/http-kit/http-kit)
-plugin, because that's a lib that is as "pure" Clojure as possible with almost no
-external dependencies.
+requests to the OCI API.  We're using the [Aleph](https://aleph.io)
+[plugin](https://github.com/monkey-projects/martian-aleph), because that http client
+is able to download large objects (files) without consuming much memory.
 
 ## Usage
 
 [![Clojars Project](https://img.shields.io/clojars/v/com.monkeyprojects/oci-os.svg)](https://clojars.org/com.monkeyprojects/oci-os)
-[![CircleCI](https://circleci.com/gh/monkey-projects/oci-os.svg?style=svg)](https://app.circleci.com/pipelines/github/monkey-projects/oci-os)
 
 Include the library in your project:
 ```clojure
