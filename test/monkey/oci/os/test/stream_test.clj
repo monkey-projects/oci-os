@@ -167,10 +167,10 @@
       (is (nil? (.write os (.getBytes s))))
       (is (nil? (.flush os)))
       (is (nil? (.close os)))
-      (is (nil? (.close in)))
       (is (= {:status 200
               :body :committed}
-             (deref p 1000 :timeout)))))
+             (deref p 1000 :timeout)))
+      (is (nil? (.close in)))))
 
   (testing "only writes multiparts if buffer size reached"
     (let [in (PipedInputStream.)
@@ -295,7 +295,6 @@
       (is (nil? (.write os (.getBytes s))))
       (is (nil? (.flush os)))
       (is (nil? (.close os)))
-      (is (nil? (.close in)))
       (is (= {:status 200
               :body :committed}
              (deref p 1000 :timeout)))
@@ -307,4 +306,5 @@
               :progress
               {:total-bytes (count s)
                :idx 0}}
-             (first @inv))))))
+             (first @inv)))
+      (is (nil? (.close in))))))
