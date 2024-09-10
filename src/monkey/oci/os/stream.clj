@@ -28,19 +28,21 @@
 
 (defn- collector [aborter etags]
   (fn [idx {:keys [status headers body]}]
-    (if (= 200 status)
+    (cond
+      (= status 200)
       ;; Collect the etags and part numbers, we'll need them when committing
       (do
-        (swap! etags conj (-> #_{:etag (or (get headers :etag)
-                                         (get headers "etag"))}
-                              (select-keys headers [:etag])
+        (swap! etags conj (-> (select-keys headers [:etag])
                               (assoc :part-num idx)))
         true)
+      (>= status 400)
       (do
         (log/error "Unable to upload part, got status" status ":" (:message body))
         (md/chain
          (aborter)
-         (constantly false))))))
+         (constantly false)))
+      :else ; Nothing to do
+      true)))
 
 (defn- body-or-throw-on-error [{:keys [status] :as r}]
   (if (>= status 400)
@@ -117,54 +119,72 @@
                  :bucket-name bucket
                  :object-name object
                  :upload-id upload-id}
-           commit (committer ctx opts etags)
-           maybe-close (fn [r]
-                         (when close?
-                           (.close in))
-                         r)
-           abort (fn []
-                   (md/chain
-                    (m/abort-multipart-upload ctx opts)
-                    maybe-close))
-           collect-or-abort (collector abort etags)
-           commit-or-abort (fn []
-                             ;; It's not possible to commit an empty multipart stream
-                             (if (empty? @etags)
-                               (abort)
-                               (commit)))
-           read #(md/future
+           commit (committer ctx opts etags)]
+       (letfn [(maybe-close [r]
+                 (when close?
+                   (.close in))
+                 r)
+               (abort []
+                 (md/chain
+                  (m/abort-multipart-upload ctx opts)
+                  maybe-close))
+               (commit-or-abort [_]
+                 ;; It's not possible to commit an empty multipart stream
+                 (if (empty? @etags)
+                   (abort)
+                   (commit)))
+               (read [offs len]
+                 (md/future
                    (try
-                     (.read in buf)
+                     (.read in buf offs len)
                      (catch java.io.IOException ex
                        (if (= "Pipe closed" (.getMessage ex))
                          -1
-                         (throw ex)))))]
-       (md/loop [n (read)
-                 idx 1
-                 total 0]
-         (md/chain
-          n
-          (fn [n]         
-            (if (neg? n)
-              ;; EOF
-              (commit-or-abort)
-              (md/chain
-               (do
-                 ;; TODO Allow grouping of small buffers into a larger part
-                 (log/debug "Read" n "bytes, uploading them as part" idx)
-                 (log/trace "Part contents:" (String. buf 0 n))
-                 (m/upload-part ctx
-                                (assoc opts
-                                       :upload-part-num idx
-                                       :headers {:content-type content-type}
-                                       :part (shrink-buf buf n))))
-               (fn [res]
+                         (throw ex))))))
+               (upload-part [idx n]
+                 (if (pos? n)
+                   (do
+                     (log/debug "Uploading" n "bytes as part" idx)
+                     (m/upload-part ctx
+                                    (assoc opts
+                                           :upload-part-num idx
+                                           :headers {:content-type content-type}
+                                           :part (shrink-buf buf n))))
+                   {:status 204}))
+               (report-progress [res idx total]
                  (when progress
                    (progress {:opts (assoc opts :upload-id upload-id)
                               :progress {:idx (dec idx)
-                                         :total-bytes (+ total n)}}))
+                                         :total-bytes total}}))
                  res)
-               (partial collect-or-abort idx)
-               (fn [c?]
-                 (when c?
-                   (md/recur (read) (inc idx) (+ total n)))))))))))))
+               (upload-and-collect [idx n total]
+                 (md/chain
+                  (upload-part idx n)
+                  #(report-progress % idx total)
+                  (partial (collector abort etags) idx)))]
+         (md/loop [idx 1
+                   offs 0
+                   total 0]
+           (md/chain
+            (read offs (- buf-size offs))
+            (fn [n]
+              (log/debug "Read" n "bytes from input stream")
+              (let [total+ (+ total n)]
+                (cond
+                  (neg? n)
+                  ;; EOF, upload remaining part and commit
+                  (md/chain
+                   (upload-and-collect idx offs total)
+                   commit-or-abort)
+                  
+                  (= buf-size (+ offs n))
+                  ;; Buffer is full, upload it and proceed to next part
+                  (md/chain
+                   (upload-and-collect idx buf-size total+)
+                   (fn [c?]
+                     (when c?
+                       (md/recur (inc idx) 0 total+))))
+
+                  :else
+                  ;; Buffer not full yet, read more data
+                  (md/recur idx (+ offs n) total+)))))))))))

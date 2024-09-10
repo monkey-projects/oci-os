@@ -166,13 +166,63 @@
       (is (md/deferred? p) "returns a deferred")
       (is (nil? (.write os (.getBytes s))))
       (is (nil? (.flush os)))
-      ;; Wait until uploaded
-      (is (not= :timeout (wait-for #(true? @uploaded?) 1000 :timeout)))
       (is (nil? (.close os)))
       (is (nil? (.close in)))
       (is (= {:status 200
               :body :committed}
              (deref p 1000 :timeout)))))
+
+  (testing "only writes multiparts if buffer size reached"
+    (let [in (PipedInputStream.)
+          os (PipedOutputStream. in)
+          uploaded (atom [])
+          ctx (-> test-ctx
+                  (mt/respond-with
+                   {:create-multipart-upload
+                    (constantly
+                     {:status 200
+                      :body {:upload-id "test-id"
+                             :bucket "test-bucket"
+                             :object "test-obj"
+                             :namespace "test-ns"}})
+                    :upload-part
+                    (fn [req]
+                      (swap! uploaded conj (count (:body req)))
+                      {:status 200
+                       :headers {:etag "test-etag"}})
+                    :commit-multipart-upload
+                    (constantly
+                     {:status 200
+                      :body :committed})
+                    :abort-multipart-upload
+                    (constantly
+                     {:status 500
+                      :body :aborted})}))
+          p (sut/input-stream->multipart
+             ctx
+             {:ns "test-ns"
+              :bucket-name "test-bucket"
+              :object-name "test-file"
+              :input-stream in
+              :buf-size 10})
+          s "another test string"
+          bytes (.getBytes s)]
+      (is (md/deferred? p) "returns a deferred")
+      ;; Write multiple smaller parts to stream
+      (is (nil? (.write os bytes 0 5)))
+      (is (nil? (.flush os)))
+      (is (nil? (.write os bytes 5 (- (count bytes) 5))))
+      (is (nil? (.flush os)))
+      ;; Wait until at least one part is uploaded
+      (is (not= :timeout (wait-for #(not-empty @uploaded) 1000 :timeout)))
+      ;; Close streams
+      (is (nil? (.close os)))
+      (is (nil? (.close in)))
+      (is (= {:status 200
+              :body :committed}
+             (deref p 1000 :timeout)))
+      ;; Expect the first part to contain a full buffer
+      (is (= [10 9] @uploaded))))  
 
   (testing "aborts empty streams"
     (let [in (PipedInputStream.)
@@ -244,8 +294,6 @@
       (is (md/deferred? p) "returns a deferred")
       (is (nil? (.write os (.getBytes s))))
       (is (nil? (.flush os)))
-      ;; Wait until uploaded
-      (is (not= :timeout (wait-for #(not-empty @inv) 1000 :timeout)))
       (is (nil? (.close os)))
       (is (nil? (.close in)))
       (is (= {:status 200
