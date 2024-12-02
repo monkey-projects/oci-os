@@ -72,7 +72,7 @@
    (s/optional-key :content-disposition) s/Str
    (s/optional-key :content-encoding) s/Str
    (s/optional-key :content-language) s/Str
-   (s/optional-key :metadata) {s/Str s/Str}
+   (s/optional-key :metadata) {s/Keyword s/Str}
    (s/optional-key :storage-tier) storage-tier})
 
 (def max-multipart-count 10000)

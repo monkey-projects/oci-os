@@ -62,16 +62,17 @@
 
 (defn put-multipart
   "Uploads large file using multipart"
-  [obj path]
+  [obj path & [opts]]
   (letfn [(show-progress [{:keys [progress]}]
             (log/info "Bytes uploaded:" (:total-bytes progress)))]
     (log/info "Uploading multipart:" path "to" obj)
-    @(s/input-stream->multipart ctx {:ns @bucket-ns
-                                     :bucket-name bucket-name
-                                     :object-name obj
-                                     :input-stream (io/input-stream (io/file path))
-                                     :close? true
-                                     :progress show-progress})))
+    @(s/input-stream->multipart ctx (merge {:ns @bucket-ns
+                                            :bucket-name bucket-name
+                                            :object-name obj
+                                            :input-stream (io/input-stream (io/file path))
+                                            :close? true
+                                            :progress show-progress}
+                                           opts))))
 
 (defn delete-object [obj]
   (log/info "Deleting object" obj)

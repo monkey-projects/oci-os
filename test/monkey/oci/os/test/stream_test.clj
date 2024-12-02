@@ -1,5 +1,6 @@
 (ns monkey.oci.os.test.stream-test
   (:require [clojure.test :refer [deftest testing is]]
+            [clojure.tools.logging :as log]
             [manifold
              [deferred :as md]
              [stream :as ms]]
@@ -307,4 +308,53 @@
               {:total-bytes (count s)
                :idx 0}}
              (first @inv)))
+      (is (nil? (.close in)))))
+
+  (testing "passes metadata on creation"
+    (let [in (PipedInputStream.)
+          os (PipedOutputStream. in)
+          uploaded? (atom false)
+          meta {:opc-test-key "test value"}
+          ctx (-> test-ctx
+                  (mt/respond-with
+                   {:create-multipart-upload
+                    (fn [req]
+                      (let [bmd (get-in req [:body :metadata])]
+                        (log/debug "Request body:" (:body req))
+                        (if (= meta bmd)
+                          {:status 200
+                           :body {:upload-id "test-id"
+                                  :bucket "test-bucket"
+                                  :object "test-obj"
+                                  :namespace "test-ns"}}
+                          {:status 400
+                           :body {:invalid-metadata bmd}})))
+                    :upload-part
+                    (fn [_]
+                      (reset! uploaded? true)
+                      {:status 200
+                       :headers {:etag "test-etag"}})
+                    :commit-multipart-upload
+                    (constantly
+                     {:status 200
+                      :body :committed})
+                    :abort-multipart-upload
+                    (constantly
+                     {:status 500
+                      :body :aborted})}))
+          p (sut/input-stream->multipart
+             ctx
+             {:ns "test-ns"
+              :bucket-name "test-bucket"
+              :object-name "test-file"
+              :input-stream in
+              :metadata meta})
+          s "test string"]
+      (is (md/deferred? p) "returns a deferred")
+      (is (nil? (.write os (.getBytes s))))
+      (is (nil? (.flush os)))
+      (is (nil? (.close os)))
+      (is (= {:status 200
+              :body :committed}
+             (deref p 1000 :timeout)))
       (is (nil? (.close in))))))

@@ -12,9 +12,9 @@
   :test
   {:extra-deps {com.monkeyprojects/build {:mvn/version "0.2.0"}
                 org.slf4j/slf4j-api {:mvn/version "2.0.16"}
-                ch.qos.logback/logback-classic {:mvn/version "1.5.8"}
-                yogthos/config {:mvn/version "1.2.0"}
-                com.github.oliyh/martian-test {:mvn/version "0.1.26"}}
+                ch.qos.logback/logback-classic {:mvn/version "1.5.12"}
+                yogthos/config {:mvn/version "1.2.1"}
+                com.github.oliyh/martian-test {:mvn/version "0.1.30"}}
    :extra-paths ["test" "dev-resources"]
    :exec-fn monkey.test/all}
 

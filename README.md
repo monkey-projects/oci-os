@@ -62,12 +62,12 @@ hash for the body, so streaming is not supported.  For larger files, you should 
 requests (see below).
 
 The upload and download requests don't produce JSON so the calls return the underlying
-HttpKit response, which contains also a `:body` value.
+Aleph response, which contains also a `:body` value.
 ```clojure
 @(os/put-object ctx {:ns "..." :bucket-name "test-bucket" :object-name "test.txt" :contents "this is a test file"})
 ;; This will return an empty string on success
 
-# Now you can download the file as well
+;; Now you can download the file as well
 @(os/get-object {:ns "..." :bucket-name "test-bucket" :object-name "test.txt"})
 ;; Returns the file contents from the :body.  Depending on the content type,
 ;; this can be a string or an input stream.
@@ -156,6 +156,36 @@ and instead return the full response map.
 This allows you to have more control over how requests are handled.  This can also be useful
 should you want to handle 'expected' 4xx responses, instead of catching exceptions (which is
 bad form if you're actually expecting it to happen, right?)
+
+### Metadata
+
+Object storage allows storing additional custom information with objects in the form of
+[metadata](https://docs.oracle.com/en-us/iaas/Content/Object/Tasks/managingobjects.htm#HeadersAndMetadata).
+These are passed on as headers when you use the `put-object` call.  If you use multipart
+uploads, you should pass a `:metadata` property in the body.  The `input-stream->multipart`
+also allows `:metadata` in the options map.  Note that metadata keys **must** start with
+`:opc-meta-`, otherwise they will be ignored.
+
+```clojure
+;; Explicitly pass headers using the :martian.core/headers property
+(os/put-object ctx {:object-name "..." :martian.core/headers {:opc-meta-test-key "test value"}})
+
+;; Or when using multipart
+(oss/input-stream->multipart ctx {... :metadata {:opc-meta-test-key "test value"}})
+```
+
+Since the core functions automatically unwrap the response and only return the body, you
+can't get the values of the metadata like this.  Instead, you will have to resort to the
+low level calls instead.
+
+```clojure
+;; Fetch object details
+(def r @(m/get-object ctx {:object-name "..."}))
+
+;; Headers will contain the opc-meta-... values
+(:headers r)
+;; => {:opc-meta-test-key "test value"}, among others
+```
 
 ## TODO
 

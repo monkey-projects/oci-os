@@ -9,9 +9,13 @@
             [monkey.oci.os.martian :as m]))
 
 (defn- create-multipart [ctx opts]
-  (m/create-multipart-upload ctx (-> opts
-                                     (select-keys [:ns :bucket-name])
-                                     (assoc :multipart {:object (:object-name opts)}))))
+  (log/debug "Options:" opts)
+  (m/create-multipart-upload
+   ctx
+   (-> opts
+       (select-keys [:ns :bucket-name])
+       (assoc :multipart (-> (select-keys opts [:metadata])
+                             (merge {:object (:object-name opts)}))))))
 
 (defn- committer
   ([ctx opts]
