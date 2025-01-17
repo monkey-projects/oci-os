@@ -1,5 +1,5 @@
-{:deps {com.monkeyprojects/oci-common {:mvn/version "0.1.2"}
-        aleph/aleph {:mvn/version "0.8.1"} ; Use aleph http, it's better for streaming
+{:deps {com.monkeyprojects/oci-common {:mvn/version "0.2.0"}
+        aleph/aleph {:mvn/version "0.8.2"} ; Use aleph http, it's better for streaming
         buddy/buddy-sign {:mvn/version "3.6.1-359"}
         com.monkeyprojects/martian-aleph {:mvn/version "0.1.1"}
         manifold/manifold {:mvn/version "0.4.3"}
@@ -12,7 +12,7 @@
   :test
   {:extra-deps {com.monkeyprojects/build {:mvn/version "0.2.0"}
                 org.slf4j/slf4j-api {:mvn/version "2.0.16"}
-                ch.qos.logback/logback-classic {:mvn/version "1.5.12"}
+                ch.qos.logback/logback-classic {:mvn/version "1.5.16"}
                 yogthos/config {:mvn/version "1.2.1"}
                 com.github.oliyh/martian-test {:mvn/version "0.1.30"}}
    :extra-paths ["test" "dev-resources"]
