@@ -9,13 +9,13 @@
             [monkey.oci.os.martian :as m]))
 
 (defn- create-multipart [ctx opts]
-  (log/debug "Options:" opts)
+  (log/debug "Creating multipart with options:" opts)
   (m/create-multipart-upload
    ctx
    (-> opts
        (select-keys [:ns :bucket-name])
        (assoc :multipart (-> (select-keys opts [:metadata])
-                             (merge {:object (:object-name opts)}))))))
+                             (assoc :object (:object-name opts)))))))
 
 (defn- committer
   ([ctx opts]
@@ -148,7 +148,7 @@
                (upload-part [idx n]
                  (if (pos? n)
                    (do
-                     (log/debug "Uploading" n "bytes as part" idx)
+                     (log/trace "Uploading" n "bytes as part" idx)
                      (m/upload-part ctx
                                     (assoc opts
                                            :upload-part-num idx
@@ -172,7 +172,7 @@
            (md/chain
             (read offs (- buf-size offs))
             (fn [n]
-              (log/debug "Read" n "bytes from input stream")
+              (log/trace "Read" n "bytes from input stream")
               (let [total+ (+ total n)]
                 (cond
                   (neg? n)

@@ -194,6 +194,6 @@ low level calls instead.
 
 ## Copyright
 
-Copyright (c) 2023-2024 by Monkey Projects BV.
+Copyright (c) 2023-2025 by Monkey Projects BV.
 
 [MIT License](LICENSE)

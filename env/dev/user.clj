@@ -2,6 +2,7 @@
   (:require [clojure.java.io :as io]
             [clj-commons.byte-streams :as bs]
             [clojure.tools.logging :as log]
+            [clojure.tools.namespace.repl :as nr]
             [config.core :refer [env]]
             [manifold.deferred :as md]
             [monkey.oci.os
@@ -88,3 +89,7 @@
 
 (defn head-object [obj]
   @(c/head-object ctx {:ns @bucket-ns :bucket-name bucket-name :object-name obj}))
+
+(defn get-object-meta [obj]
+  (-> @(m/head-object ctx {:ns @bucket-ns :bucket-name bucket-name :object-name obj})
+      :headers))

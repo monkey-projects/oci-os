@@ -53,6 +53,9 @@
    (s/optional-key :new-obj-if-match-e-tag) s/Str
    (s/optional-key :new-obj-if-none-match-e-tag) s/Str})
 
+(s/defschema Metadata
+  {s/Str s/Str})
+
 (s/defschema CopyObject
   {:source-object-name s/Str
    (s/optional-key :source-obj-if-match-e-tag) s/Str
@@ -63,7 +66,7 @@
    :destination-region s/Str
    (s/optional-key :destination-object-if-match-e-tag) s/Str
    (s/optional-key :destination-object-if-none-match-e-tag) s/Str
-   (s/optional-key :destination-object-metadata) s/Any
+   (s/optional-key :destination-object-metadata) Metadata
    (s/optional-key :destination-object-storage-tier) s/Str})
 
 (s/defschema CreateMultipartUpload
@@ -72,7 +75,7 @@
    (s/optional-key :content-disposition) s/Str
    (s/optional-key :content-encoding) s/Str
    (s/optional-key :content-language) s/Str
-   (s/optional-key :metadata) {s/Keyword s/Str}
+   (s/optional-key :metadata) Metadata
    (s/optional-key :storage-tier) storage-tier})
 
 (def max-multipart-count 10000)
@@ -96,10 +99,29 @@
   {:name ::override-req-opts
    :enter #(update % :request assoc :as :stream)})
 
+(def fix-get-namespace-content-type
+  "When invoking `get-namespace`, it returns `Content-Type: application/json` but the body
+   is actually plain text.  This interceptor overwrites the response content type to fix this."
+  {:name ::fix-content-type
+   :leave (fn [ctx]
+            (assoc-in ctx [:response :headers "content-type"] "text/plain"))})
+
+(def re-add-metadata
+  "Body coercion drops metadata map for some reason (maybe because it's a string/string map?), 
+   so we re-add it here.  This is really hacky but I'm really tired of trying to figure out
+   Martian's weirdnesses..."
+  {:name ::re-add-metadata
+   :enter (fn [ctx]
+            (let [md (get-in ctx [:params :multipart :metadata])]
+              (cond-> ctx
+                ;; Add metadata and re-convert keys to strings
+                md (assoc-in [:request :body :metadata] (mc/map-keys name md)))))})
+
 (def routes
   [{:route-name :get-namespace
     :method :get
-    :path-parts ["/n"]}
+    :path-parts ["/n"]
+    :interceptors [fix-get-namespace-content-type]}
    
    (p/paged-route
     {:route-name :list-buckets
@@ -169,7 +191,8 @@
     :path-schema bucket-path-schema
     :body-schema {:multipart CreateMultipartUpload}
     :consumes json
-    :produces json}
+    :produces json
+    :interceptors [re-add-metadata]}
 
    (p/paged-route
     {:route-name :list-multipart-uploads
@@ -202,15 +225,6 @@
 
 (def host (comp (partial format "https://objectstorage.%s.oraclecloud.com") :region))
 
-(def fix-get-namespace-content-type
-  "When invoking `get-namespace`, it returns `Content-Type: application/json` but the body
-   is actually plain text.  This interceptor overwrites the response content type to fix this."
-  {:name ::fix-content-type
-   :leave (fn [ctx]
-            (cond-> ctx
-              (= :get-namespace (get-in ctx [:handler :route-name]))
-              (assoc-in [:response :headers "content-type"] "text/plain")))})
-
 (def custom-encoders
   {"application/octet-stream" {:as :stream
                                :encode identity
@@ -240,7 +254,6 @@
      ;; completely buffering them.  This doesn't work well with get-object.
      {:interceptors (-> (cm/default-interceptors (assoc conf :exclude-body? exclude?))
                         (mi/inject aleph/perform-request :replace :martian.httpkit/perform-request)
-                        (mi/inject fix-get-namespace-content-type :before :martian.aleph/perform-request)
                         (mi/inject coerce-response :replace ::mi/coerce-response)
                         (mi/inject keywordize-headers :before ::mi/coerce-response))})))
 

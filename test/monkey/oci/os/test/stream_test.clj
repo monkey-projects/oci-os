@@ -7,6 +7,7 @@
             [martian
              [core :as martian]
              [test :as mt]]
+            [medley.core :as mc]
             [monkey.martian.aleph :as mma]
             [monkey.oci.common.utils :as u]
             [monkey.oci.os
@@ -314,14 +315,15 @@
     (let [in (PipedInputStream.)
           os (PipedOutputStream. in)
           uploaded? (atom false)
-          meta {:opc-test-key "test value"}
+          meta {"opc-test-key" "test value"}
           ctx (-> test-ctx
                   (mt/respond-with
                    {:create-multipart-upload
                     (fn [req]
                       (let [bmd (get-in req [:body :metadata])]
-                        (log/debug "Request body:" (:body req))
-                        (if (= meta bmd)
+                        #_(log/debug "Request body:" (:body req))
+                        ;; In the response the header keys are always converted to keywords
+                        (if (= meta (mc/map-keys name bmd))
                           {:status 200
                            :body {:upload-id "test-id"
                                   :bucket "test-bucket"
