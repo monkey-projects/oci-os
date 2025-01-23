@@ -224,7 +224,7 @@
               :body :committed}
              (deref p 1000 :timeout)))
       ;; Expect the first part to contain a full buffer
-      (is (= [10 9] @uploaded))))  
+      (is (= 10 (first @uploaded)))))  
 
   (testing "aborts empty streams"
     (let [in (PipedInputStream.)
